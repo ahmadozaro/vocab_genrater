@@ -1,0 +1,326 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:ai/core/models/word.dart';
+import 'package:ai/core/theme/colors.dart';
+import 'package:ai/features/add_word/providers/word_provider.dart';
+import 'package:ai/features/progress/providers/progress_provider.dart';
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<WordProvider>().loadWords();
+      context.read<ProgressProvider>().load();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      context.read<WordProvider>().loadWords(),
+      context.read<ProgressProvider>().refresh(),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer2<WordProvider, ProgressProvider>(
+      builder: (context, wordsProvider, progressProvider, _) {
+        final isLoading =
+            (wordsProvider.isLoadingWords && wordsProvider.words.isEmpty) ||
+            (progressProvider.isLoading && !progressProvider.hasLoaded);
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: SafeArea(
+            child: isLoading
+                ? Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: SingleChildScrollView(
+                      physics: AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.all(20),
+                      child: _HomeContent(
+                        progressProvider: progressProvider,
+                        words: wordsProvider.words,
+                      ),
+                    ),
+                  ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HomeContent extends StatelessWidget {
+  final ProgressProvider progressProvider;
+  final List<WordModel> words;
+
+  const _HomeContent({required this.progressProvider, required this.words});
+
+  @override
+  Widget build(BuildContext context) {
+    if (progressProvider.errorMessage != null) {
+      return Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          progressProvider.errorMessage!,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.textDark),
+        ),
+      );
+    }
+
+    final active = progressProvider.activeWordsCount;
+    final mastered = progressProvider.masteredWords;
+    final streak = progressProvider.dailyStreak;
+    final dueCount = progressProvider.dueReviewCount;
+    final dailyValue = active == 0 ? 0.0 : (active / 10.0).clamp(0.0, 1.0);
+    final dueWords = words
+        .where((w) => (w.status ?? '') != 'pending')
+        .take(5)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Welcome back',
+                  style: TextStyle(fontSize: 14, color: AppColors.textLight),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  "Let's learn today",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: AppColors.primaryLight,
+              child: Icon(Icons.person, color: AppColors.primary),
+            ),
+          ],
+        ),
+        SizedBox(height: 24),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF9F7BFF), Color(0xFF755DC1)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Active Words Today',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '$active / 10 Words',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: LinearProgressIndicator(
+                  value: dailyValue,
+                  backgroundColor: Colors.white30,
+                  color: Colors.white,
+                  minHeight: 8,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                dueCount > 0
+                    ? 'You have $dueCount words ready for SM2 review.'
+                    : 'No words due right now. Keep adding and reviewing.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 24),
+        Row(
+          children: [
+            _StatCard(
+              icon: Icons.local_fire_department,
+              label: 'Streak',
+              value: '$streak Days',
+              color: AppColors.warning,
+            ),
+            SizedBox(width: 12),
+            _StatCard(
+              icon: Icons.star,
+              label: 'Mastered',
+              value: '$mastered Words',
+              color: AppColors.success,
+            ),
+            SizedBox(width: 12),
+            _StatCard(
+              icon: Icons.access_time,
+              label: 'Due Today',
+              value: '$dueCount Cards',
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+        SizedBox(height: 24),
+        Text(
+          'Words Overview',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textDark,
+          ),
+        ),
+        SizedBox(height: 12),
+        if (dueWords.isEmpty)
+          Text(
+            'No words yet. Add your first word from the Words tab.',
+            style: TextStyle(color: AppColors.textLight),
+          )
+        else
+          ...dueWords.map(
+            (word) => _WordCard(
+              word: word.text,
+              meaning: word.arabicMeaning ?? '',
+              level: word.status ?? 'new',
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 22),
+            SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: AppColors.textDark,
+              ),
+            ),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: AppColors.textLight),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WordCard extends StatelessWidget {
+  final String word;
+  final String meaning;
+  final String level;
+
+  const _WordCard({required this.word, required this.meaning, required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              level,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  word,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                Text(
+                  meaning,
+                  style: TextStyle(fontSize: 13, color: AppColors.textLight),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
