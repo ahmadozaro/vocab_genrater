@@ -7,7 +7,7 @@
 AI VocabGen is a full-stack vocabulary builder that helps users learn English vocabulary through:
 
 - **Instant Arabic translation** while typing a word
-- **AI-generated context** (definitions, examples, explanations) via Gemini
+- **AI-generated context** (definitions, examples, explanations) via Groq
 - **Modified SM2 spaced repetition** for review scheduling
 - **Quizzes** — standard, AI review, and SM2 review
 - **Streak tracking** based on daily SM2 quiz completion
@@ -20,7 +20,7 @@ AI VocabGen is a full-stack vocabulary builder that helps users learn English vo
 | Backend   | Python 3.12+, FastAPI, SQLAlchemy   |
 | Frontend  | Flutter 3.41+, Dart 3.11+           |
 | Database  | SQLite (dev), PostgreSQL (prod)     |
-| AI        | Google Gemini 2.5 Flash             |
+| AI        | Groq (llama-3.1-8b-instant)         |
 | Email     | SendGrid / Resend / SMTP fallback   |
 | Trans.    | deep-translator (demo), replaceable |
 | Auth      | JWT (python-jose), bcrypt           |
@@ -232,9 +232,9 @@ Translation is handled by `app/services/translation_service.py`.
 |-------|--------|---------|
 | `arabic_meaning` | Translation service | Direct dictionary translation |
 | `translationAr` | Translation service | Instant translation text |
-| `aiMeaningAr` | AI (Gemini) | Contextual Arabic explanation |
-| `aiDefinitionEn` | AI (Gemini) | Simple English definition |
-| Sentences | AI (Gemini) | Example sentences with translations |
+| `aiMeaningAr` | AI (Groq) | Contextual Arabic explanation |
+| `aiDefinitionEn` | AI (Groq) | Simple English definition |
+| Sentences | AI (Groq) | Example sentences with translations |
 
 This avoids treating an AI explanation as the official dictionary translation.
 
@@ -248,9 +248,10 @@ AI features are routed through the backend at `POST /ai/suggest-words` to keep A
 
 ### Provider
 
-- **Gemini 2.5 Flash** via `google-generativeai` Python package
-- Configured via `GEMINI_API_KEY` in `Back-End/.env`
-- Model: `gemini-2.5-flash`
+- **Groq** via `httpx` Python package
+- Configured via `GROQ_API_KEY` in `Back-End/.env`
+- Model: `llama-3.1-8b-instant`
+- Endpoint: `https://api.groq.com/openai/v1/chat/completions`
 
 ### Endpoints
 
@@ -265,6 +266,14 @@ The Flutter app never calls an AI provider directly. All AI requests go through 
 
 - **Suggested words screen** → `POST /ai/suggest-words`
 - **AI review quiz** → `POST /quizzes/ai-review`
+
+### Fallback
+
+Every AI feature has a local fallback. If Groq is unavailable:
+- Suggested words fall back to a curated list of 24+ words
+- Quiz questions are generated deterministically from user's word list
+- Word details fall back to simple template text
+- No error is shown to the user — fallback data is returned silently
 
 ---
 
@@ -293,59 +302,7 @@ One `Progress` row per user (unique constraint on `user_id`). Updated on:
 
 ---
 
-## 8. Cleanup Audit Summary
-
-### Issues Fixed
-
-| # | Issue | Fix |
-|---|-------|-----|
-| 1 | Missing `review_router` file (import in `main.py`, `__init__.py`) | Removed import |
-| 2 | Syntax error: `from sqlalchemy.orm import ` | Added `Session` |
-| 3 | Three duplicate translation endpoints | Kept only `GET /words/translate-instant` |
-| 4 | Duplicate `WordCreate`/`WordResponse` in `user_schema.py` | Removed (exists in `word_schema.py`) |
-| 5 | Empty skeleton files (`ai_schema.py`, `helpers.py`, `database.py`) | Deleted |
-| 6 | Real `GEMINI_API_KEY` in `.env` | Replaced with placeholder |
-| 7 | Missing root `.gitignore` | Created |
-| 8 | Unused `_addTestWords` method in Flutter | Removed |
-| 9 | Stale test files (`test_*.py`, `widget_test.dart`) | Deleted |
-| 10 | Root `.env.example` only covered email (duplicated) | Deleted |
-
-### Files Changed (not committed)
-
-```
-modified:   .dockerignore
-modified:   Back-End/.env
-deleted:    Back-End/app/database.py
-modified:   Back-End/app/main.py
-modified:   Back-End/app/routers/__init__.py
-modified:   Back-End/app/routers/quiz_router.py
-deleted:    Back-End/app/routers/review_router.py
-modified:   Back-End/app/routers/user_router.py
-modified:   Back-End/app/routers/word_router.py
-modified:   Back-End/app/schemas/__init__.py
-deleted:    Back-End/app/schemas/ai_schema.py
-modified:   Back-End/app/schemas/user_schema.py
-deleted:    Back-End/app/tests/temp_register_test.py
-deleted:    Back-End/app/tests/test_email_delivery_flow.py
-deleted:    Back-End/app/tests/test_login_2fa_flow.py
-modified:   Back-End/app/utils/__init__.py
-deleted:    Back-End/app/utils/helpers.py
-deleted:    CLEANUP_NOTES.md
-deleted:    ERD_SM2_REDESIGN.md
-deleted:    IMPLEMENTATION_NOTES.md
-deleted:    IMPLEMENTATION_NOTES_SM2_TRANSLATION.md
-deleted:    TABLES_AUDIT.md
-created:    .gitignore
-created:    Back-End/CLEANUP_AUDIT.md (since deleted by doc consolidation)
-created:    Back-End/ERD_SM2_REDESIGN.md (since deleted by doc consolidation)
-created:    Back-End/TABLES_AUDIT.md (since deleted by doc consolidation)
-modified:   Front-End/lib/features/add_word/screens/add_word.dart
-deleted:    Front-End/test/widget_test.dart
-```
-
----
-
-## 9. Docker Notes
+## 8. Docker Notes
 
 ### Structure
 
@@ -387,42 +344,21 @@ services:
 docker compose up --build
 ```
 
-Or use the helper script:
-
-```powershell
-.\run-docker.ps1
-```
-
 ### Notes
 
 - The `.dockerignore` excludes `**/node_modules`, `**/__pycache__`, `**/.git`, etc.
-- The `**/Dockerfile*` pattern was removed from `.dockerignore` so the Dockerfile is accessible
 - The container reads env vars from `AI-VocabGen-main/Back-End/.env`
 
 ---
 
-## 10. Remaining Warnings / TODOs
+## 9. Remaining Warnings / TODOs
 
 ### Warnings
 
-- **GEMINI_API_KEY** in `Back-End/.env` must never be committed — the root `.gitignore` now covers `.env`
+- **GROQ_API_KEY** in `Back-End/.env` must never be committed — the root `.gitignore` now covers `.env`
 - **SQLite in development**: `Base.metadata.create_all` will not reshape existing tables. Delete `vocabgen.db` if models change:
   ```bash
   rm -f AI-VocabGen-main/Back-End/vocabgen.db
   ```
 - **Production should use Alembic** for schema migrations instead of `create_all`
 - **Deep-translator** is a demo provider. Replace `translation_service.py` with Google Cloud Translation for production
-
-### TODOs
-
-| # | Item |
-|---|------|
-| 1 | Extract SM2 logic into `app/core/sm2.py` as a pure testable function |
-| 2 | De-duplicate `get_or_create_progress` across `sm2_quiz_router.py` and `progress_router.py` |
-| 3 | Add `quiz_type` enum (`standard`, `ai_review`, `sm2_review`) |
-| 4 | Add batch score update endpoint `PATCH /sm2/words/batch-score` |
-| 5 | Consider background job for pre-computing due words |
-| 6 | Add alembic migration setup for production |
-| 7 | Replace deep-translator with Google Cloud Translation |
-| 8 | Verify sender domain in SendGrid/Resend before production email |
-| 9 | The old documentation files (`AI-VocabGen-main/CLEANUP_NOTES.md`, `AI-VocabGen-main/ERD_SM2_REDESIGN.md`, `AI-VocabGen-main/IMPLEMENTATION_NOTES.md`, `AI-VocabGen-main/IMPLEMENTATION_NOTES_SM2_TRANSLATION.md`, `AI-VocabGen-main/TABLES_AUDIT.md`) were already deleted from the working tree. Their content has been merged into this document. If any are still tracked by git, they should be `git rm`'d. |

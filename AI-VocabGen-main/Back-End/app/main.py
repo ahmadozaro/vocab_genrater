@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models
 from app.core.database import Base, engine
 from app.routers import (
+    ai_router,
     notification_router,
     progress_router,
     quiz_router,
@@ -73,14 +74,7 @@ app.include_router(quiz_router.router)
 app.include_router(progress_router.router)
 app.include_router(notification_router.router)
 app.include_router(sm2_quiz_router.router)
-
-try:
-    from app.routers import ai_router
-
-    app.include_router(ai_router.router)
-    logging.getLogger(__name__).info("AI router loaded")
-except ImportError as e:
-    logging.getLogger(__name__).warning("AI router not loaded: %s", e)
+app.include_router(ai_router.router)
 
 
 @app.get("/")

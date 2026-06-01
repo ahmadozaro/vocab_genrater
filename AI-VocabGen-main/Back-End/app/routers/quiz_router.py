@@ -21,6 +21,7 @@ from app.schemas.quiz_schema import (
     QuizSubmitResponse,
     QuizStartResponse,
 )
+from app.services.ai_service import VocabGenAI
 
 
 router = APIRouter()
@@ -172,10 +173,6 @@ def create_ai_review_quiz(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Generate an AI-powered review quiz using a smart mix of words.
-    Prefers recent and lower-score words, but includes a variety.
-    """
     words = (
         db.query(Word)
         .filter(Word.user_id == current_user.id, Word.status != "pending")
@@ -185,46 +182,40 @@ def create_ai_review_quiz(
         raise HTTPException(status_code=400, detail="Add at least 4 words to start an AI review quiz")
 
     selected_words = _select_review_words(words, limit=10)
-    word_texts_with_arabic = [f"{w.text} ({w.arabicMeaning or 'unknown'})" for w in selected_words if w.text]
+    word_dicts = [
+        {"text": w.text, "arabicMeaning": w.arabicMeaning or "", "wordId": w.id}
+        for w in selected_words if w.text
+    ]
 
-    try:
-        from app.services.ai_service import VocabGenAI
+    ai_questions: list[dict] | None = None
+    if settings.GROQ_API_KEY:
+        try:
+            ai = VocabGenAI(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
+            ai_questions = ai.generate_quiz_questions(word_dicts, count=min(10, len(word_dicts)))
+        except Exception as exc:
+            logger = logging.getLogger(__name__)
+            logger.warning("AI quiz generation failed; using fallback: %.200s", str(exc))
 
-        if not settings.GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY not configured")
-
-        ai = VocabGenAI(api_key=settings.GEMINI_API_KEY)
-        user_level = current_user.level or "A1"
-
-        ai_result = ai.generate_review_quiz(word_texts_with_arabic, user_level)
-        if ai_result.get("error"):
-            raise RuntimeError(f"AI generation failed: {ai_result.get('details')}")
-
-        ai_questions = ai_result.get("questions", [])
-        if not ai_questions:
-            raise RuntimeError("AI returned no questions")
-
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI quiz generation failed: {str(e)}")
+    if not ai_questions:
+        ai_questions = VocabGenAI._fallback_quiz_questions(word_dicts, min(10, len(word_dicts)))
 
     questions_out: list[dict] = []
     valid_questions: list[tuple[str, list[str], str]] = []
-    for ai_q in ai_questions:
-        question_text = ai_q.get("question_text", "")
-        options = ai_q.get("options", [])
-        correct = ai_q.get("correct_answer", "")
+    for q in ai_questions:
+        question_text = q.get("questionText", "")
+        options = q.get("options", [])
+        correct = q.get("correctAnswer", "")
 
         if not question_text or not isinstance(options, list) or len(options) != 4:
-            raise HTTPException(status_code=502, detail="AI returned invalid quiz options")
+            continue
         if correct not in options:
-            raise HTTPException(status_code=502, detail="Correct answer not in options")
-
-        clean_options = [str(option) for option in options]
+            continue
+        clean_options = [str(o) for o in options]
         valid_questions.append((str(question_text), clean_options, str(correct)))
         questions_out.append(_format_start_question(str(question_text), clean_options, str(correct)))
 
     if not valid_questions:
-        raise HTTPException(status_code=502, detail="AI returned no valid questions")
+        raise HTTPException(status_code=500, detail="Quiz generation failed: no valid questions")
 
     quiz = Quiz(
         quizType="ai_review",

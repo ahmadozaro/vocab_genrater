@@ -28,7 +28,7 @@ flutter run
 
 1. **Add your API key** to `AI-VocabGen-main/Back-End/.env`:
    ```env
-   GEMINI_API_KEY=your_key_here
+   GROQ_API_KEY=your_key_here
    ```
 
 2. **Build and start the container**:
@@ -58,8 +58,9 @@ docker compose down
 Place `.env` in `AI-VocabGen-main/Back-End/.env` with:
 
 ```env
-GEMINI_API_KEY=your_key_here
+AI_PROVIDER=groq
+GROQ_API_KEY=your_key_here
 SECRET_KEY=change_me
 ```
 
-**WARNING:** Never commit a real `GEMINI_API_KEY` to version control.
+**WARNING:** Never commit a real `GROQ_API_KEY` to version control.

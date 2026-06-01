@@ -20,6 +20,7 @@ from app.schemas.word_schema import (
     WordUpdate,
 )
 from app.services.translation_service import TranslationService
+from app.services.ai_service import VocabGenAI
 from app.utils.security import ALGORITHM, SECRET_KEY
 
 
@@ -105,30 +106,24 @@ def _get_optional_user(
 
 
 def _get_ai_details(word_text: str, level: str) -> dict:
-    if not settings.GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY is not configured")
+    if not settings.GROQ_API_KEY:
+        return {}
 
     try:
-        from app.services.ai_service import VocabGenAI
-    except ImportError as exc:
-        raise RuntimeError(f"AI service dependency is not available: {exc}")
-
-    ai = VocabGenAI(api_key=settings.GEMINI_API_KEY)
-    details = ai.get_contextual_details(word=word_text, level=level)
-    if not isinstance(details, dict) or details.get("error"):
-        detail_message = (
-            details.get("details") or details.get("error")
-            if isinstance(details, dict)
-            else "AI lookup returned an invalid response"
-        )
-        logger.error(
-            "AI lookup failed for word=%s level=%s: %s",
-            word_text,
-            level,
-            detail_message,
-        )
-        raise RuntimeError(detail_message)
-    return details
+        ai = VocabGenAI(api_key=settings.GROQ_API_KEY, model=settings.GROQ_MODEL)
+        details = ai.generate_word_details(word=word_text, level=level)
+        if not isinstance(details, dict):
+            return {}
+        return {
+            "word": word_text,
+            "arabic_meaning": details.get("contextual_meaning_ar", ""),
+            "english_definition": details.get("definition_en", f"A vocabulary word: {word_text}."),
+            "context_sentence": details.get("example_sentence_en", f"I learned the word {word_text} today."),
+            "arabic_context_translation": details.get("example_sentence_ar", ""),
+        }
+    except Exception as exc:
+        logger.warning("AI details unavailable for %s: %.200s", word_text, str(exc))
+        return {}
 
 
 def _normalize_ai_lookup(word_text: str, details: dict) -> dict:
@@ -207,9 +202,8 @@ def lookup_word(
     ai_lookup: dict = {}
     try:
         ai_lookup = _normalize_ai_lookup(word_text, _get_ai_details(word_text, level))
-    except RuntimeError as exc:
-        logger.warning("Word lookup AI details unavailable for %s: %s", word_text, exc)
-        ai_lookup = {}
+    except Exception as exc:
+        logger.warning("Word lookup AI details unavailable for %s: %.200s", word_text, str(exc))
 
     return {
         "text": ai_lookup.get("text") or word_text,
@@ -273,9 +267,8 @@ def create_word(
         ai_lookup = _normalize_ai_lookup(word_text, details)
         if not requested_examples:
             requested_examples = ai_lookup.get("examples", [])
-    except RuntimeError as exc:
-        logger.warning("Create word AI details unavailable for %s: %s", word_text, exc)
-        logger.debug("AI details error traceback", exc_info=True)
+    except Exception as exc:
+        logger.warning("Create word AI details unavailable for %s: %.200s", word_text, str(exc))
 
     if ai_lookup.get("definition") and not dictionary_word.definition_en:
         dictionary_word.definition_en = ai_lookup.get("definition")
