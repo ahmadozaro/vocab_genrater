@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/progress/providers/progress_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -25,17 +26,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
       builder: (context, provider, _) {
         return Scaffold(
           backgroundColor: AppColors.background,
-          appBar: AppBar(
-            title: Text(
-              "My Progress",
-              style: TextStyle(
-                color: AppColors.textWhite,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            centerTitle: true,
-            backgroundColor: AppColors.primary,
-            elevation: 0,
+          appBar: LearningAppBar(
+            title: "My Progress",
+            subtitle: "Track your learning momentum",
+            icon: Icons.insights_rounded,
+            metricLabel: "Streak",
+            metricValue: "${provider.dailyStreak}",
           ),
           body: provider.isLoading && !provider.hasLoaded
               ? Center(

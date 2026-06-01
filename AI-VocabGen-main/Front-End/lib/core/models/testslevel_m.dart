@@ -1,99 +1,110 @@
 class Testslevel {
+  final int id;
   final String text;
   final List<String> options;
   final int correctIndex;
+  final String level; // A1, A2, B1, B2, C1
   final String hint;
-  final String difficulty; // 'easy' | 'medium' | 'hard'
 
-  const Testslevel({
+  Testslevel({
+    required this.id,
     required this.text,
     required this.options,
     required this.correctIndex,
+    required this.level,
     required this.hint,
-    required this.difficulty,
   });
 }
 
-const List<Testslevel> testsQuestions = [
-  //سهل (A1-A2)
+// بنك الأسئلة المعتمد على CEFR و English Profile
+final List<Testslevel> testsQuestions = [
+  // --- A1 ---
   Testslevel(
-    text:
-        "1. I need to buy some ________ for my salad, like lettuce and tomatoes.",
-    options: ["stationery", "vegetables", "appliances", "furniture"],
-    correctIndex: 1,
-    hint: "أشياء خضراء نأكلها في السلطة",
-    difficulty: 'easy',
-  ),
-  Testslevel(
-    text:
-        "2. My sister is a ________; she works in a large hospital and helps sick people.",
-    options: ["carpenter", "lawyer", "nurse", "pilot"],
-    correctIndex: 2,
-    hint: "شخص يساعد الأطباء والمرضى",
-    difficulty: 'easy',
-  ),
-  Testslevel(
-    text: "3. It's very ________ today; you should take an umbrella.",
-    options: ["sunny", "rainy", "thirsty", "hungry"],
-    correctIndex: 1,
-    hint: "حالة الجو عندما تسقط المياه من السماء",
-    difficulty: 'easy',
-  ),
-  // متوسط (B1-B2)
-  Testslevel(
-    text: "4. The company decided to ________ the meeting until next Tuesday.",
-    options: ["cancel", "postpone", "confirm", "interrupt"],
-    correctIndex: 1,
-    hint: "تغيير موعد شيء ليكون في وقت لاحق",
-    difficulty: 'medium',
-  ),
-  Testslevel(
-    text:
-        "5. She has a very ________ lifestyle; she exercises every day and eats organic food.",
-    options: ["hectic", "cautious", "healthy", "sedentary"],
-    correctIndex: 2,
-    hint: "أسلوب حياة يحافظ على سلامة الجسم",
-    difficulty: 'medium',
-  ),
-  Testslevel(
-    text:
-        "6. I didn't mean to ________ you, but I think you've made a mistake in the calculations.",
-    options: ["offend", "defend", "depend", "pretend"],
+    id: 1,
+    level: 'A1',
     correctIndex: 0,
-    hint: "التسبب في ضيق أو إحراج لشخص ما",
-    difficulty: 'medium',
+    text: "She ___ from Spain.",
+    options: ["is", "are", "am", "be"],
+    hint: "استخدم فعل الكون المناسب للمفرد الغائب.",
   ),
-  // صعب (C1)
   Testslevel(
-    text:
-        "7. The speaker's ________ argument convinced the entire audience to support the new policy.",
-    options: ["tenuous", "cogent", "vague", "sluggish"],
+    id: 2,
+    level: 'A1',
     correctIndex: 1,
-    hint: "وصف للحجة القوية والمنطقية التي تقنع الآخرين",
-    difficulty: 'hard',
+    text: "I don't have ___ money.",
+    options: ["some", "any", "many", "a"],
+    hint: "تُستخدم مع الجمل المنفية للكميات.",
+  ),
+
+  // --- A2 ---
+  Testslevel(
+    id: 3,
+    level: 'A2',
+    correctIndex: 2,
+    text: "They ___ to the cinema yesterday.",
+    options: ["go", "going", "went", "gone"],
+    hint: "الجملة في زمن الماضي البسيط (yesterday).",
   ),
   Testslevel(
-    text:
-        "8. After years of war, the citizens were longing for a period of ________ and stability.",
-    options: ["turbulence", "tranquility", "friction", "chaos"],
-    correctIndex: 1,
-    hint: "حالة من الهدوء الشديد والسكينة",
-    difficulty: 'hard',
-  ),
-  Testslevel(
-    text:
-        "9. His ________ remarks during the ceremony were considered highly inappropriate by the committee.",
-    options: ["facetious", "meticulous", "diligent", "gregarious"],
+    id: 4,
+    level: 'A2',
     correctIndex: 0,
-    hint: "محاولة المزاح في مواقف جادة أو غير مناسبة",
-    difficulty: 'hard',
+    text: "This book is ___ than that one.",
+    options: ["better", "good", "best", "more good"],
+    hint: "صيغة المقارنة بين شيئين (Comparative).",
+  ),
+
+  // --- B1 ---
+  Testslevel(
+    id: 5,
+    level: 'B1',
+    correctIndex: 1,
+    text: "I have lived here ___ 2015.",
+    options: ["for", "since", "from", "in"],
+    hint: "تُستخدم للإشارة إلى نقطة زمنية محددة بدأ فيها الفعل.",
   ),
   Testslevel(
-    text:
-        "10. The scientist's discovery was so ________ that it completely changed our understanding of physics.",
-    options: ["ephemeral", "profound", "trivial", "obsolete"],
+    id: 6,
+    level: 'B1',
+    correctIndex: 2,
+    text: "You ___ wear a uniform at our school. It's the rule.",
+    options: ["can", "might", "must", "could"],
+    hint: "تُستخدم للتعبير عن الإلزام والقواعد الثابتة.",
+  ),
+
+  // --- B2 ---
+  Testslevel(
+    id: 7,
+    level: 'B2',
+    correctIndex: 2,
+    text: "If I ___ you, I would apply for that job.",
+    options: ["am", "was", "were", "had been"],
+    hint: "حالة الشرط الثانية (Second Conditional) للتخيل.",
+  ),
+  Testslevel(
+    id: 8,
+    level: 'B2',
+    correctIndex: 0,
+    text: "The letter ___ yesterday.",
+    options: ["was sent", "sent", "has sent", "is sent"],
+    hint: "صيغة المبني للمجهول في الماضي (Passive Voice).",
+  ),
+
+  // --- C1 ---
+  Testslevel(
+    id: 9,
+    level: 'C1',
+    correctIndex: 3,
+    text: "Scarcely ___ the door when the phone rang.",
+    options: ["I had opened", "I opened", "did I open", "had I opened"],
+    hint: "قاعدة الانعكاس (Inversion) بعد الكلمات السلبية.",
+  ),
+  Testslevel(
+    id: 10,
+    level: 'C1',
     correctIndex: 1,
-    hint: "شيء ذو تأثير عميق وجذري وليس سطحياً",
-    difficulty: 'hard',
+    text: "He is believed ___ the country in secret.",
+    options: ["to leave", "to have left", "leaving", "that he left"],
+    hint: "استخدام صيغة (Perfect Infinitive) للأحداث الماضية.",
   ),
 ];

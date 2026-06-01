@@ -1,12 +1,13 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:ai/core/models/testslevel_m.dart';
 import 'package:ai/features/placement_tests/logic/quiz_logic.dart';
 import 'package:ai/features/placement_tests/widgets/difficulty_badge.dart';
 import 'package:ai/features/placement_tests/widgets/option_button.dart';
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:ai/core/providers/auth_provider.dart';
 import 'package:ai/core/navigation/navigation_all.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 
 class TestScreen extends StatefulWidget {
   final bool isRetake;
@@ -50,7 +51,7 @@ class _TestScreenState extends State<TestScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Your Score: ${_logic.correctCount} / ${testsQuestions.length}",
+              "Your Score: ${_logic.correctCount} / ${_logic.maxQuestions}",
               style: TextStyle(fontSize: 16, color: AppColors.textDark),
             ),
             SizedBox(height: 12),
@@ -108,7 +109,7 @@ class _TestScreenState extends State<TestScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("تلميح", style: TextStyle(color: AppColors.primary)),
+        title: Text("Hint", style: TextStyle(color: AppColors.primary)),
         content: Text(hint),
         actions: [
           TextButton(
@@ -126,40 +127,20 @@ class _TestScreenState extends State<TestScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          "Level Test",
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        elevation: 0,
+      appBar: LearningAppBar(
+        title: "Level Test",
+        subtitle: "Question ${_logic.questionsAsked} of ${_logic.maxQuestions}",
+        icon: Icons.school_outlined,
+        metricLabel: "Score",
+        metricValue: "${_logic.correctCount}",
+        progress: _logic.progress,
+        showBackButton: widget.isRetake,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LinearProgressIndicator(
-              value: _logic.progress,
-              backgroundColor: AppColors.primaryLight,
-              color: AppColors.primaryDark,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(5),
-            ),
-            SizedBox(height: 20),
-            Text(
-              "Question ${_logic.currentIndex + 1} of ${_logic.answers.length + 1}",
-              style: TextStyle(
-                color: AppColors.textLight,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            SizedBox(height: 10),
             Container(
               width: double.infinity,
               padding: EdgeInsets.all(20),
@@ -186,7 +167,7 @@ class _TestScreenState extends State<TestScreen> {
                     ),
                   ),
                   SizedBox(height: 8),
-                  DifficultyBadge(difficulty: question.difficulty),
+                  DifficultyBadge(difficulty: question.level),
                 ],
               ),
             ),

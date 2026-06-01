@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:ai/features/add_word/providers/word_provider.dart';
 import 'package:ai/features/add_word/widgets/word_list_item.dart';
 import 'package:ai/features/add_word/widgets/word_result_card.dart';
@@ -11,6 +10,7 @@ import 'package:ai/core/models/word.dart';
 import 'package:ai/core/services/api.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/button.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/core/widgets/textfield.dart';
 
 class AddWordScreen extends StatefulWidget {
@@ -172,17 +172,12 @@ class _AddWordScreenState extends State<AddWordScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          "Words",
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        elevation: 0,
+      appBar: LearningAppBar(
+        title: "Words",
+        subtitle: "Build and review your vocabulary",
+        icon: Icons.menu_book_rounded,
+        metricLabel: "Tabs",
+        metricValue: "3",
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -449,7 +444,11 @@ class _StatItem extends StatelessWidget {
   final String value;
   final IconData icon;
 
-  const _StatItem({required this.label, required this.value, required this.icon});
+  const _StatItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   @override
   Widget build(BuildContext context) {

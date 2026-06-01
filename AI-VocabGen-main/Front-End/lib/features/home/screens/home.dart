@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/models/word.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/add_word/providers/word_provider.dart';
 import 'package:ai/features/progress/providers/progress_provider.dart';
 
@@ -39,7 +40,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Scaffold(
           backgroundColor: AppColors.background,
+          appBar: LearningAppBar(
+            title: "Let's Learn",
+            subtitle: "Welcome back to your vocabulary path",
+            icon: Icons.auto_stories_rounded,
+            metricLabel: "Streak",
+            metricValue: "${progressProvider.dailyStreak}",
+          ),
           body: SafeArea(
+            top: false,
             child: isLoading
                 ? Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
@@ -94,35 +103,6 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Welcome back',
-                  style: TextStyle(fontSize: 14, color: AppColors.textLight),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  "Let's learn today",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-              ],
-            ),
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: AppColors.primaryLight,
-              child: Icon(Icons.person, color: AppColors.primary),
-            ),
-          ],
-        ),
-        SizedBox(height: 24),
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(20),
@@ -271,7 +251,11 @@ class _WordCard extends StatelessWidget {
   final String meaning;
   final String level;
 
-  const _WordCard({required this.word, required this.meaning, required this.level});
+  const _WordCard({
+    required this.word,
+    required this.meaning,
+    required this.level,
+  });
 
   @override
   Widget build(BuildContext context) {

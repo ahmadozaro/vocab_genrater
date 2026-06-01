@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/providers/auth_provider.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/core/widgets/textfield.dart';
 import 'package:ai/core/widgets/button.dart';
 
@@ -116,17 +117,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.black),
-        // ✅ زر الرجوع للمرحلة الأولى إذا كنا في مرحلة إدخال الكود
-        leading: _isCodeSent
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _isCodeSent = false),
-              )
-            : null,
+      backgroundColor: AppColors.background,
+      appBar: LearningAppBar(
+        title: _isCodeSent ? "Check Inbox" : "Reset Password",
+        subtitle: _isCodeSent
+            ? "Enter the code and choose a new password"
+            : "Recover access to your learning account",
+        icon: _isCodeSent
+            ? Icons.mark_email_read_outlined
+            : Icons.lock_reset_rounded,
+        metricLabel: "Code",
+        metricValue: _isCodeSent ? "6" : "Email",
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () {
+            if (_isCodeSent) {
+              setState(() => _isCodeSent = false);
+            } else {
+              Navigator.maybePop(context);
+            }
+          },
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 30),

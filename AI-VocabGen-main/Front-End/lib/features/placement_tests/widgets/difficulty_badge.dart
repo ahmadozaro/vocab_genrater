@@ -6,15 +6,9 @@ class DifficultyBadge extends StatelessWidget {
   const DifficultyBadge({super.key, required this.difficulty});
 
   Color get _color {
-    if (difficulty == 'easy') return AppColors.success;
-    if (difficulty == 'medium') return AppColors.warning;
-    return AppColors.error;
-  }
-
-  String get _label {
-    if (difficulty == 'easy') return '● Easy';
-    if (difficulty == 'medium') return '●● Medium';
-    return '●●● Hard';
+    if (difficulty == 'A1' || difficulty == 'A2') return AppColors.success;
+    if (difficulty == 'B1' || difficulty == 'B2') return AppColors.warning;
+    return AppColors.error; // لـ C1 وما فوق
   }
 
   @override
@@ -26,7 +20,7 @@ class DifficultyBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        _label,
+        "Level: $difficulty",
         style: TextStyle(
           fontSize: 12,
           color: _color,

@@ -7,6 +7,7 @@ import 'package:ai/features/quiz/screens/sm2_review_quiz.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -30,17 +31,17 @@ class _QuizScreenState extends State<QuizScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          "Quiz",
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        elevation: 0,
+      appBar: LearningAppBar(
+        title: "Quiz",
+        subtitle: quiz.state == QuizState.active
+            ? "Question ${quiz.currentIndex + 1} in progress"
+            : "Practice and strengthen your words",
+        icon: Icons.quiz_outlined,
+        metricLabel: quiz.state == QuizState.active ? "Score" : "History",
+        metricValue: quiz.state == QuizState.active
+            ? "${quiz.score}"
+            : "${quiz.history.length}",
+        progress: quiz.state == QuizState.active ? quiz.progress : null,
       ),
       body: _buildBody(quiz),
     );

@@ -3,6 +3,7 @@ import 'package:ai/features/progress/providers/progress_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/quiz/providers/sm2_quiz_provider.dart';
 
 class Sm2ReviewQuizScreen extends StatefulWidget {
@@ -28,10 +29,16 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
       onWillPop: () => _confirmExit(sm2),
       child: Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(
-          title: Text("SM2 Review Quiz", style: TextStyle(color: Colors.white)),
-          backgroundColor: AppColors.primary,
-          iconTheme: IconThemeData(color: Colors.white),
+        appBar: LearningAppBar(
+          title: "SM2 Review",
+          subtitle: sm2.state == Sm2QuizState.active && sm2.quiz != null
+              ? "Question ${sm2.currentIndex + 1} of ${sm2.quiz!.questions.length}"
+              : "Review words at the right time",
+          icon: Icons.replay_circle_filled_rounded,
+          metricLabel: "Mode",
+          metricValue: "SM2",
+          progress: sm2.state == Sm2QuizState.active ? sm2.progress : null,
+          showBackButton: true,
         ),
         body: _body(sm2),
       ),

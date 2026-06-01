@@ -17,6 +17,7 @@ import 'package:ai/core/providers/auth_provider.dart';
 import 'package:ai/core/providers/theme_provider.dart';
 import 'package:ai/features/placement_tests/screens/testlevel.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 
 // ─── إعداد الإشعارات ─────────────────────────────────────────────
 final FlutterLocalNotificationsPlugin _notifications =
@@ -269,17 +270,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          "Settings",
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        elevation: 0,
+      appBar: LearningAppBar(
+        title: "Settings",
+        subtitle: "Manage your learning profile",
+        icon: Icons.tune_rounded,
+        metricLabel: "Level",
+        metricValue: auth.userLevel ?? "A1",
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20),

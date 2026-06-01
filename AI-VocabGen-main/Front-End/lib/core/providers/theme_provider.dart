@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ai/core/animations/app_motion.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,6 +22,24 @@ class ThemeProvider extends ChangeNotifier {
     await prefs.setBool('isDarkMode', value);
   }
 
+  PageTransitionsTheme get _pageTransitions => const PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: LearningPageTransitionsBuilder(),
+      TargetPlatform.iOS: LearningPageTransitionsBuilder(),
+      TargetPlatform.macOS: LearningPageTransitionsBuilder(),
+      TargetPlatform.windows: LearningPageTransitionsBuilder(),
+      TargetPlatform.linux: LearningPageTransitionsBuilder(),
+    },
+  );
+
+  ElevatedButtonThemeData get _elevatedButtonTheme => ElevatedButtonThemeData(
+    style: ElevatedButton.styleFrom(
+      animationDuration: AppMotion.fast,
+      elevation: 0,
+      splashFactory: InkSparkle.splashFactory,
+    ),
+  );
+
   ThemeData get lightTheme => ThemeData(
     brightness: Brightness.light,
     colorSchemeSeed: const Color(0xFF4C6FFF),
@@ -31,6 +50,8 @@ class ThemeProvider extends ChangeNotifier {
       filled: true,
       fillColor: AppColors.card,
     ),
+    elevatedButtonTheme: _elevatedButtonTheme,
+    pageTransitionsTheme: _pageTransitions,
     useMaterial3: true,
   );
 
@@ -44,6 +65,8 @@ class ThemeProvider extends ChangeNotifier {
       filled: true,
       fillColor: AppColors.card,
     ),
+    elevatedButtonTheme: _elevatedButtonTheme,
+    pageTransitionsTheme: _pageTransitions,
     useMaterial3: true,
   );
 }

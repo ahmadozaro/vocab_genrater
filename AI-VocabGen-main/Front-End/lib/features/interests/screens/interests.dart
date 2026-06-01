@@ -1,5 +1,7 @@
 import 'package:ai/core/models/interest.dart';
 import 'package:ai/core/providers/auth_provider.dart';
+import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/interests/widgets/interests_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -43,15 +45,13 @@ class _InterestsScreenState extends State<InterestsScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        automaticallyImplyLeading: false,
-        title: const Text(
-          'Your Interests',
-          style: TextStyle(color: Colors.black),
-        ),
+      backgroundColor: AppColors.background,
+      appBar: const LearningAppBar(
+        title: "Your Interests",
+        subtitle: "Choose topics that make practice feel personal",
+        icon: Icons.interests_rounded,
+        metricLabel: "Step",
+        metricValue: "2",
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
