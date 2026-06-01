@@ -17,15 +17,12 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _awaitingOtp = false;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _otpController.dispose();
     super.dispose();
   }
 
@@ -44,32 +41,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (success) {
-      setState(() => _awaitingOtp = true);
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text("Verification code sent to your email."),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
-        ),
-      );
-    } else {
-      _showError(messenger, auth.errorMessage ?? 'Login failed.');
-    }
-  }
-
-  Future<void> _handleVerifyOtp() async {
-    FocusScope.of(context).unfocus();
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final messenger = ScaffoldMessenger.of(context);
-
-    final success = await auth.verifyLoginOtp(
-      _emailController.text.trim(),
-      _otpController.text.trim(),
-    );
-
-    if (!mounted) return;
-
-    if (success) {
       messenger.showSnackBar(
         const SnackBar(
           content: Text("Welcome back!"),
@@ -78,27 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } else {
-      _showError(messenger, auth.errorMessage ?? 'Invalid verification code.');
-    }
-  }
-
-  Future<void> _handleResendOtp() async {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final messenger = ScaffoldMessenger.of(context);
-    final success = await auth.resendLoginOtp(_emailController.text.trim());
-
-    if (!mounted) return;
-
-    if (success) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text("Verification code resent."),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
-        ),
-      );
-    } else {
-      _showError(messenger, auth.errorMessage ?? 'Failed to resend code.');
+      _showError(messenger, auth.errorMessage ?? 'Invalid email or password');
     }
   }
 
@@ -143,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const SizedBox(height: 10),
                       Text(
-                        _awaitingOtp ? "Verify Login" : "Log In",
+                        "Log In",
                         style: TextStyle(
                           fontSize: 26,
                           color: AppColors.secondary,
@@ -151,10 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 30),
-                      if (_awaitingOtp)
-                        _buildOtpStep(auth)
-                      else
-                        _buildPasswordStep(auth),
+                      _buildLoginForm(auth),
                       const SizedBox(height: 30),
                     ],
                   ),
@@ -167,7 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildPasswordStep(AuthProvider auth) {
+  Widget _buildLoginForm(AuthProvider auth) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -228,62 +176,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: AppColors.secondary,
                   fontWeight: FontWeight.bold,
                 ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOtpStep(AuthProvider auth) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          "Enter the 6-digit code sent to ${_emailController.text.trim()}",
-          style: TextStyle(color: AppColors.textLight),
-        ),
-        if (auth.lastLoginOtpDebugCode != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            "Development code: ${auth.lastLoginOtpDebugCode}",
-            style: TextStyle(color: AppColors.secondary),
-          ),
-        ],
-        const SizedBox(height: 16),
-        CustomTextField(
-          label: "Verification Code",
-          controller: _otpController,
-          icon: Icons.verified_user_outlined,
-          keyboardType: TextInputType.number,
-        ),
-        const SizedBox(height: 16),
-        CustomButton(
-          text: "Verify & Continue",
-          isLoading: auth.isLoading,
-          onPressed: auth.isLoading ? null : _handleVerifyOtp,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(
-              onPressed: auth.isLoading
-                  ? null
-                  : () {
-                      setState(() {
-                        _awaitingOtp = false;
-                        _otpController.clear();
-                      });
-                    },
-              child: Text("Back", style: TextStyle(color: AppColors.secondary)),
-            ),
-            TextButton(
-              onPressed: auth.isLoading ? null : _handleResendOtp,
-              child: Text(
-                "Resend Code",
-                style: TextStyle(color: AppColors.secondary),
               ),
             ),
           ],

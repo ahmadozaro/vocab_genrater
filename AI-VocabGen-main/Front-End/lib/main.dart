@@ -49,19 +49,14 @@ class _AppRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
-        // 1. تحميل جلسة المستخدم عند فتح التطبيق فقط
         if (auth.isInitializing) return const _SplashScreen();
 
-        // 2. غير مسجّل → شاشة Auth
         if (!auth.isLoggedIn) return const _AuthFlow();
 
-        // 3. ✅ مسجّل لكن يحتاج اختيار اهتمامات (مستخدم جديد بعد verifyEmail)
         if (auth.needsInterests) return const InterestsScreen();
 
-        // 4. مسجّل لكن لم يجري اختبار المستوى
         if (!auth.hasTakenTest) return const TestScreen();
 
-        // 5. كل شيء مكتمل → الرئيسية
         return const Navigation();
       },
     );

@@ -1,11 +1,11 @@
+import logging
 import smtplib
-import json
 from email.message import EmailMessage
 from html import escape
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmailNotConfiguredError(RuntimeError):
@@ -17,15 +17,7 @@ class EmailDeliveryError(RuntimeError):
 
 
 def is_email_enabled() -> bool:
-    return is_sendgrid_enabled() or is_resend_enabled() or is_smtp_enabled()
-
-
-def is_sendgrid_enabled() -> bool:
-    return bool(settings.SENDGRID_API_KEY.strip() and settings.SENDGRID_FROM_EMAIL.strip())
-
-
-def is_resend_enabled() -> bool:
-    return bool(settings.RESEND_API_KEY.strip() and settings.RESEND_FROM_EMAIL.strip())
+    return is_smtp_enabled()
 
 
 def is_smtp_enabled() -> bool:
@@ -58,16 +50,6 @@ def send_password_reset_code(to_email: str, code: str) -> None:
     )
 
 
-def send_login_otp_code(to_email: str, code: str) -> None:
-    _send_code_email(
-        to_email=to_email,
-        subject="Your AI VocabGen login code",
-        title="Confirm your login",
-        message="Use this code to complete your AI VocabGen login. It expires in 5 minutes.",
-        code=code,
-    )
-
-
 def _send_code_email(
     *,
     to_email: str,
@@ -96,26 +78,8 @@ def _send_code_email(
         "If you did not request this, you can ignore this email."
     )
 
-    if is_sendgrid_enabled():
-        _send_with_sendgrid(
-            to_email=to_email,
-            subject=subject,
-            html=html,
-            text=text,
-        )
-        return
-
-    if is_resend_enabled():
-        _send_with_resend(
-            to_email=to_email,
-            subject=subject,
-            html=html,
-            text=text,
-        )
-        return
-
     from_email = settings.SMTP_FROM_EMAIL.strip() or settings.SMTP_USERNAME.strip()
-    from_name = settings.SMTP_FROM_NAME.strip() or "AI VocabGen"
+    from_name = settings.SMTP_FROM_NAME.strip() or settings.APP_NAME
 
     email = EmailMessage()
     email["Subject"] = subject
@@ -138,12 +102,27 @@ def _send_code_email(
                 settings.SMTP_PORT,
                 timeout=15,
             ) as server:
+                server.set_debuglevel(0)
                 if settings.SMTP_USE_TLS:
                     server.starttls()
                 _login_and_send(server, email, from_email, to_email)
+    except smtplib.SMTPAuthenticationError:
+        logger.error(
+            "SMTP auth failed for host=%s port=%s user=%s",
+            settings.SMTP_HOST, settings.SMTP_PORT, settings.SMTP_USERNAME,
+        )
+        raise EmailDeliveryError("SMTP authentication failed — check SMTP_USERNAME and SMTP_PASSWORD") from None
     except smtplib.SMTPException as exc:
+        logger.error(
+            "SMTP delivery failed for host=%s port=%s user=%s: %s",
+            settings.SMTP_HOST, settings.SMTP_PORT, settings.SMTP_USERNAME, exc,
+        )
         raise EmailDeliveryError(f"SMTP delivery failed: {exc}") from exc
     except OSError as exc:
+        logger.error(
+            "SMTP connection failed for host=%s port=%s user=%s: %s",
+            settings.SMTP_HOST, settings.SMTP_PORT, settings.SMTP_USERNAME, exc,
+        )
         raise EmailDeliveryError(f"SMTP connection failed: {exc}") from exc
 
 
@@ -157,89 +136,4 @@ def _login_and_send(
     server.send_message(email, from_addr=from_email, to_addrs=[to_email])
 
 
-def _send_with_resend(
-    *,
-    to_email: str,
-    subject: str,
-    html: str,
-    text: str,
-) -> None:
-    from_name = settings.RESEND_FROM_NAME.strip() or "AI VocabGen"
-    from_email = settings.RESEND_FROM_EMAIL.strip()
-    payload = {
-        "from": f"{from_name} <{from_email}>",
-        "to": [to_email],
-        "subject": subject,
-        "html": html,
-        "text": text,
-    }
-    request = Request(
-        "https://api.resend.com/emails",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {settings.RESEND_API_KEY.strip()}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
 
-    try:
-        with urlopen(request, timeout=15) as response:
-            if response.status < 200 or response.status >= 300:
-                raise EmailDeliveryError(
-                    f"Resend delivery failed with status {response.status}"
-                )
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise EmailDeliveryError(
-            f"Resend delivery failed with status {exc.code}: {detail}"
-        ) from exc
-    except URLError as exc:
-        raise EmailDeliveryError(f"Resend connection failed: {exc.reason}") from exc
-
-
-def _send_with_sendgrid(
-    *,
-    to_email: str,
-    subject: str,
-    html: str,
-    text: str,
-) -> None:
-    from_name = settings.SENDGRID_FROM_NAME.strip() or "AI VocabGen"
-    from_email = settings.SENDGRID_FROM_EMAIL.strip()
-    payload = {
-        "personalizations": [
-            {
-                "to": [{"email": to_email}],
-                "subject": subject,
-            }
-        ],
-        "from": {"email": from_email, "name": from_name},
-        "content": [
-            {"type": "text/plain", "value": text},
-            {"type": "text/html", "value": html},
-        ],
-    }
-    request = Request(
-        "https://api.sendgrid.com/v3/mail/send",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {settings.SENDGRID_API_KEY.strip()}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
-    try:
-        with urlopen(request, timeout=15) as response:
-            if response.status < 200 or response.status >= 300:
-                raise EmailDeliveryError(
-                    f"SendGrid delivery failed with status {response.status}"
-                )
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise EmailDeliveryError(
-            f"SendGrid delivery failed with status {exc.code}: {detail}"
-        ) from exc
-    except URLError as exc:
-        raise EmailDeliveryError(f"SendGrid connection failed: {exc.reason}") from exc

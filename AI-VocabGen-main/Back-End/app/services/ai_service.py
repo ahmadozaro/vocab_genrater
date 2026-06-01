@@ -25,6 +25,8 @@ class VocabGenAI:
         "5. Arabic Support: Translations must be natural Modern Standard Arabic, not literal or robotic."
     )
 
+    FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]
+
     def __init__(self, api_key: str, model: str | None = None):
         if not api_key:
             raise ValueError("GEMINI_API_KEY is not configured")
@@ -44,35 +46,48 @@ class VocabGenAI:
             except Exception:
                 return str(response)
 
-    def _generate_content_smart(self, prompt: str):
-        try:
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=prompt,
-                config={
-                    "system_instruction": self.SYSTEM_INSTRUCTION,
-                    "temperature": 0.7,
-                    "top_p": 0.95,
-                    "response_mime_type": "application/json",
-                },
-            )
-            raw_text = (self._extract_text(response) or "").strip()
-            if not raw_text:
-                logger.error("AI returned an empty response for prompt: %s", prompt)
-                return {"error": "AI returned an empty response", "details": "No text content was found."}
-
+    def _generate_content_smart(self, prompt: str, model_name: str | None = None):
+        models_to_try = [model_name or self.model_name] + [
+            m for m in self.FALLBACK_MODELS if m != (model_name or self.model_name)
+        ]
+        last_error = None
+        errors = []
+        for model in models_to_try:
             try:
-                return json.loads(raw_text)
-            except json.JSONDecodeError as exc:
-                logger.error("AI returned invalid JSON. raw_response=%s", raw_text[:500])
-                return {
-                    "error": "AI returned invalid JSON",
-                    "details": str(exc),
-                    "raw_response": raw_text[:500],
-                }
-        except Exception as exc:
-            logger.exception("AI generation failed")
-            return {"error": "Failed to generate AI content", "details": str(exc)}
+                response = self.client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config={
+                        "system_instruction": self.SYSTEM_INSTRUCTION,
+                        "temperature": 0.7,
+                        "top_p": 0.95,
+                        "response_mime_type": "application/json",
+                    },
+                )
+                raw_text = (self._extract_text(response) or "").strip()
+                if not raw_text:
+                    logger.warning("AI returned empty response for model %s", model)
+                    last_error = "empty response"
+                    errors.append(f"{model}: empty")
+                    continue
+
+                try:
+                    return json.loads(raw_text)
+                except json.JSONDecodeError as exc:
+                    logger.error("AI returned invalid JSON from %s: %s", model, raw_text[:500])
+                    last_error = str(exc)
+                    errors.append(f"{model}: bad JSON")
+                    continue
+
+            except Exception as exc:
+                err_str = str(exc)[:300]
+                logger.warning("AI model %s failed: %s", model, err_str)
+                last_error = err_str
+                errors.append(f"{model}: {err_str}")
+                continue
+
+        logger.error("All AI models failed; errors=%s", "; ".join(errors))
+        return {"error": "All Gemini models failed", "details": "; ".join(errors)}
 
     def health_check(self) -> dict:
         prompt = 'Return ONLY this JSON object: {"ok": true}'
@@ -95,6 +110,40 @@ class VocabGenAI:
 
         Example exact format:
         ["word1", "word2", "word3", "word4", "word5"]
+        """
+        return self._generate_content_smart(prompt)
+
+    def suggest_words_detailed(self, level: str, interests: list, excluded_words: list = None, count: int = 20):
+        excluded = excluded_words or []
+        prompt = f"""
+        Task: Suggest {count} unique English vocabulary words for a learner at CEFR level {level}.
+        Interests: {', '.join(interests) or 'general vocabulary'}.
+        Excluded Words (DO NOT suggest any of these): {excluded}.
+
+        For each word, return a JSON object with these exact fields:
+        - "text": the English word
+        - "arabicMeaning": natural Modern Standard Arabic translation
+        - "definition": a simple English definition suitable for {level} level
+        - "difficulty": one of "easy", "medium", or "hard" appropriate for {level}
+        - "example": a simple example sentence using the word
+
+        Requirements:
+        - All {count} words must be unique
+        - None of the excluded words should appear
+        - Words must be appropriate for CEFR level {level}
+        - Cover diverse contexts (daily life, work, nature, technology, etc.)
+        - Return ONLY a JSON array of {count} objects
+
+        Example format:
+        [
+          {{
+            "text": "example",
+            "arabicMeaning": "مثال",
+            "definition": "Something that shows how something else works",
+            "difficulty": "easy",
+            "example": "This sentence is an example of how to use the word."
+          }}
+        ]
         """
         return self._generate_content_smart(prompt)
 

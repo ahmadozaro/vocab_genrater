@@ -1,3 +1,5 @@
+import 'package:ai/features/add_word/providers/word_provider.dart';
+import 'package:ai/features/progress/providers/progress_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/theme/colors.dart';
@@ -175,9 +177,13 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
             Text("Daily streak: ${result['dailyStreak'] ?? 0}"),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                if (context.mounted) {
+                  context.read<ProgressProvider>().refresh();
+                  context.read<WordProvider>().loadWords();
+                }
                 sm2.reset();
-                Navigator.pop(context);
+                if (context.mounted) Navigator.pop(context);
               },
               child: Text("Done"),
             ),

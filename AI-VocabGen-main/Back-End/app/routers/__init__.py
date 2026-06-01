@@ -3,7 +3,6 @@ from app.routers import (
     notification_router,
     progress_router,
     quiz_router,
-    review_router,
     sm2_quiz_router,
     user_router,
     word_router,

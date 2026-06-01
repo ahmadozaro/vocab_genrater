@@ -13,12 +13,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./vocabgen.db"
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
-    RESEND_API_KEY: str = ""
-    RESEND_FROM_EMAIL: str = ""
-    RESEND_FROM_NAME: str = "AI VocabGen"
-    SENDGRID_API_KEY: str = ""
-    SENDGRID_FROM_EMAIL: str = ""
-    SENDGRID_FROM_NAME: str = "AI VocabGen"
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
@@ -27,6 +21,7 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "AI VocabGen"
     SMTP_USE_TLS: bool = True
     SMTP_USE_SSL: bool = False
+    APP_NAME: str = "AI VocabGen"
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

@@ -167,15 +167,6 @@ def get_quizzes(
     )
 
 
-@router.get("/quizzes/{quiz_id}", response_model=QuizResponse)
-def get_quiz(
-    quiz_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return _get_user_quiz(db, quiz_id, current_user.id)
-
-
 @router.post("/quizzes/ai-review", response_model=QuizStartResponse)
 def create_ai_review_quiz(
     db: Session = Depends(get_db),
@@ -257,43 +248,6 @@ def create_ai_review_quiz(
     db.refresh(quiz)
 
     return {"quiz_id": quiz.quizId, "questions": questions_out}
-
-
-@router.post("/quizzes/{quiz_id}/questions", response_model=QuestionResponse)
-def create_quiz_question(
-    quiz_id: int,
-    data: QuestionCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    quiz = _get_user_quiz(db, quiz_id, current_user.id)
-    question = Question(
-        questionText=data.questionText,
-        correctAnswer=data.correctAnswer,
-        options=json.dumps(data.options, ensure_ascii=False),
-        quizId=quiz.quizId,
-    )
-    db.add(question)
-    quiz.questionsCount = (quiz.questionsCount or 0) + 1
-    db.commit()
-    db.refresh(question)
-    return _question_response(question)
-
-
-@router.get("/quizzes/{quiz_id}/questions", response_model=list[QuestionResponse])
-def get_quiz_questions(
-    quiz_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    quiz = _get_user_quiz(db, quiz_id, current_user.id)
-    questions = (
-        db.query(Question)
-        .filter(Question.quizId == quiz.quizId)
-        .order_by(Question.questionId.asc())
-        .all()
-    )
-    return [_question_response(question) for question in questions]
 
 
 @router.post("/quizzes/{quiz_id}/submit", response_model=QuizSubmitResponse)

@@ -184,27 +184,11 @@ def _try_activate_pending_words(db: Session, user_id: int) -> int:
     return len(pending_words)
 
 
-@router.post("/translate/instant")
-def instant_translate(data: WordLookupRequest):
-    word_text = _clean_text(data.text)
-    if not word_text:
-        raise HTTPException(status_code=400, detail="Text is required")
-    return _translate_only(word_text)
-
-
 @router.get("/words/translate-instant")
 def instant_translate_word_get(
     text: str = Query(..., min_length=1),
 ):
     return _translate_only(text)
-
-
-@router.post("/words/translate-instant")
-def instant_translate_word_post(data: WordLookupRequest):
-    word_text = _clean_text(data.text)
-    if not word_text:
-        raise HTTPException(status_code=400, detail="Text is required")
-    return _translate_only(word_text)
 
 
 @router.post("/words/lookup", response_model=WordLookupResponse)

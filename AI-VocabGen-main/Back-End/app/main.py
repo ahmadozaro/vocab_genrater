@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,7 +9,6 @@ from app.routers import (
     notification_router,
     progress_router,
     quiz_router,
-    review_router,
     sm2_quiz_router,
     user_router,
     word_router,
@@ -71,16 +72,15 @@ app.include_router(word_router.router)
 app.include_router(quiz_router.router)
 app.include_router(progress_router.router)
 app.include_router(notification_router.router)
-app.include_router(review_router.router)
 app.include_router(sm2_quiz_router.router)
 
 try:
     from app.routers import ai_router
 
     app.include_router(ai_router.router)
-except ImportError:
-    # TODO: Include AI router after optional AI dependencies are installed.
-    pass
+    logging.getLogger(__name__).info("AI router loaded")
+except ImportError as e:
+    logging.getLogger(__name__).warning("AI router not loaded: %s", e)
 
 
 @app.get("/")

@@ -652,6 +652,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
             ],
           ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF755DC1),
+                side: const BorderSide(color: Color(0xFF755DC1)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () {
+                final auth = Provider.of<AuthProvider>(context, listen: false);
+                auth.skipVerification();
+              },
+              child: const Text(
+                "Skip for now",
+                style: TextStyle(fontSize: 15),
+              ),
+            ),
+          ),
           const SizedBox(height: 30),
         ],
       ),

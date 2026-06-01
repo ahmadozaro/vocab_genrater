@@ -124,6 +124,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _showVerifyEmailDialog(AuthProvider auth) async {
+    final codeController = TextEditingController();
+    final codeFormKey = GlobalKey<FormState>();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Verify Email"),
+        content: Form(
+          key: codeFormKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                auth.userEmail ?? '',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: codeController,
+                decoration: const InputDecoration(
+                  labelText: '6-digit code',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                validator: (v) {
+                  if (v == null || v.trim().length != 6) {
+                    return 'Enter the 6-digit code';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (!codeFormKey.currentState!.validate()) return;
+              final success = await auth.verifyEmail(
+                auth.userEmail ?? '',
+                codeController.text.trim(),
+              );
+              if (ctx.mounted) Navigator.pop(ctx, success);
+            },
+            child: const Text("Verify"),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    SettingsLogic.showSnack(
+      context,
+      ok: ok == true,
+      successMsg: 'Email verified ✓',
+      failMsg: auth.errorMessage ?? 'Invalid code',
+    );
+  }
+
   Future<void> _showChangePasswordDialog(AuthProvider auth) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -247,6 +311,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
               trailing: Icon(Icons.edit, size: 16, color: AppColors.textLight),
               onTap: () => _showChangeEmailDialog(auth),
             ),
+            if (auth.isEmailVerified)
+              SettingsTile(
+                icon: Icons.verified,
+                title: "Email Verification",
+                subtitle: "Verified",
+                trailing: Icon(
+                  Icons.check_circle,
+                  size: 18,
+                  color: Colors.green,
+                ),
+              )
+            else
+              SettingsTile(
+                icon: Icons.warning_amber,
+                title: "Email Verification",
+                subtitle: "Not verified",
+                trailing: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryLight,
+                    foregroundColor: AppColors.primary,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  onPressed: () => _showVerifyEmailDialog(auth),
+                  child: Text(
+                    "Verify",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
             SizedBox(height: 16),
 
             // ─── Learning ─────────────────────────────────────
@@ -349,7 +446,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 size: 14,
                 color: AppColors.textLight,
               ),
-              // ✅ LogoutHelper مباشرة — بدون _confirmLogout
               onTap: () => LogoutHelper.showConfirmLogout(context, auth),
             ),
             SizedBox(height: 30),

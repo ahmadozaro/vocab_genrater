@@ -40,14 +40,14 @@ class WordProvider extends ChangeNotifier {
     _isSaving = true;
     notifyListeners();
     try {
-      final saved = await ApiService.createWord(
+      await ApiService.createWord(
         text: text,
         arabicMeaning: arabicMeaning,
         audio: _searchResult?.audio,
         source: _searchResult?.source,
         examples: _searchResult?.examples ?? [],
       );
-      _words.insert(0, saved);
+      await loadWords();
       _searchResult = null;
       _searchState = WordSearchState.idle;
       notifyListeners();

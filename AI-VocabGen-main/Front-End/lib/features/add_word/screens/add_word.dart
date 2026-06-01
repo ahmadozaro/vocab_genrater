@@ -168,45 +168,6 @@ class _AddWordScreenState extends State<AddWordScreen>
     }
   }
 
-  // ignore: unused_element
-  Future<void> _addTestWords(WordProvider provider) async {
-    final testWords = [
-      {'text': 'Postpone', 'arabic': 'تأجيل'},
-      {'text': 'Eloquent', 'arabic': 'فصيح'},
-      {'text': 'Ambiguous', 'arabic': 'غامض'},
-      {'text': 'Diligent', 'arabic': 'مجتهد'},
-    ];
-
-    int added = 0;
-    for (final word in testWords) {
-      try {
-        await ApiService.createWord(
-          text: word['text']!,
-          arabicMeaning: word['arabic']!,
-          audio: null,
-          source: 'test',
-        );
-        added++;
-      } catch (_) {}
-    }
-
-    await provider.loadWords();
-    if (mounted) context.read<ProgressProvider>().refresh();
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          added > 0 ? "$added test words added ✅" : "Words already exist",
-        ),
-        backgroundColor: added > 0 ? AppColors.success : AppColors.warning,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    if (added > 0) _tabController.animateTo(2);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

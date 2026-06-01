@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Union
-from datetime import datetime
 
 
 # ================= USER SCHEMAS =================
@@ -15,6 +14,7 @@ class UserResponse(BaseModel):
     name: str
     email: str
     level: Optional[str] = None
+    level_test_completed: bool = False
     interests: str = ""
     is_email_verified: bool = False
     verification_debug_code: Optional[str] = None
@@ -41,37 +41,6 @@ class UserUpdateProfile(BaseModel):
 class UserUpdatePassword(BaseModel):
     current_password: str
     new_password: str
-
-
-# ================= WORD & SENTENCE SCHEMAS =================
-class SentenceInWord(BaseModel):
-    sentenceId: int
-    text: str
-
-    class Config:
-        from_attributes = True
-
-
-class WordCreate(BaseModel):
-    text: str
-    arabicMeaning: Optional[str] = None
-    audio: Optional[str] = None
-    source: Optional[str] = None
-
-
-class WordResponse(BaseModel):
-    wordId: int
-    text: str
-    arabicMeaning: Optional[str]
-    audio: Optional[str]
-    sm2Repeats: int
-    nextReviewDate: Optional[datetime]
-    score: int
-    source: Optional[str]
-    sentences: List[SentenceInWord] = []
-
-    class Config:
-        from_attributes = True
 
 
 # ================= AUTH SCHEMAS =================

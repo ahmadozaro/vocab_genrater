@@ -49,7 +49,12 @@ class ApiService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'name': name, 'email': email, 'password': password}),
     );
-    return _handle(res);
+    final data = Map<String, dynamic>.from(_handle(res));
+    final token = data['access_token'] as String?;
+    if (token != null && token.isNotEmpty) {
+      await saveToken(token);
+    }
+    return data;
   }
 
   static Future<Map<String, dynamic>> login({
@@ -61,39 +66,12 @@ class ApiService {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {'username': email, 'password': password},
     );
-    return Map<String, dynamic>.from(_handle(res));
-  }
-
-  static Future<String> verifyLoginOtp({
-    required String email,
-    required String challengeId,
-    required String code,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/login/verify-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'challenge_id': challengeId,
-        'code': code,
-      }),
-    );
-    final data = _handle(res);
-    final token = data['access_token'] as String;
-    await saveToken(token);
-    return token;
-  }
-
-  static Future<Map<String, dynamic>> resendLoginOtp({
-    required String email,
-    required String challengeId,
-  }) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/login/resend-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'challenge_id': challengeId}),
-    );
-    return Map<String, dynamic>.from(_handle(res));
+    final data = Map<String, dynamic>.from(_handle(res));
+    final token = data['access_token'] as String?;
+    if (token != null && token.isNotEmpty) {
+      await saveToken(token);
+    }
+    return data;
   }
 
   // ─── FORGOT PASSWORD (إضافة وتصحيح) ───────────────────────────────
@@ -312,7 +290,7 @@ class ApiService {
       Uri.parse('$baseUrl/quizzes'),
       headers: headers,
     );
-    return QuizModel.fromJson(_handle(res));
+    return QuizModel.fromJson(Map<String, dynamic>.from(_handle(res)));
   }
 
   static Future<QuizModel> createAiReviewQuiz() async {
@@ -321,7 +299,7 @@ class ApiService {
       Uri.parse('$baseUrl/quizzes/ai-review'),
       headers: headers,
     );
-    return QuizModel.fromJson(_handle(res));
+    return QuizModel.fromJson(Map<String, dynamic>.from(_handle(res)));
   }
 
   static Future<List<QuizHistory>> getQuizHistory() async {
@@ -359,7 +337,7 @@ class ApiService {
         'level': level,
         'interests': interests,
         'existingWords': existingWords,
-        'limit': 6,
+        'limit': 20,
       }),
     );
     final list = _handle(res) as List;

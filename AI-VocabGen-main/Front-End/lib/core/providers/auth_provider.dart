@@ -10,7 +10,6 @@ class AuthProvider extends ChangeNotifier {
   bool _isInitializing = true;
   bool _isEmailVerified = false;
 
-  // ✅ مستخدم جديد سجّل للتو ولم يختر اهتماماته بعد
   bool _needsInterests = false;
 
   String? _errorMessage;
@@ -19,8 +18,6 @@ class AuthProvider extends ChangeNotifier {
   String? _userLevel;
   String? _lastVerificationDebugCode;
   String? _lastResetDebugCode;
-  String? _loginChallengeId;
-  String? _lastLoginOtpDebugCode;
   List<InterestModel> _userInterestModels = [];
 
   bool get isLoggedIn => _isLoggedIn;
@@ -28,15 +25,13 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isInitializing => _isInitializing;
   bool get isEmailVerified => _isEmailVerified;
-  bool get needsInterests => _needsInterests; // ✅ جديد
+  bool get needsInterests => _needsInterests;
   String? get errorMessage => _errorMessage;
   String? get userName => _userName;
   String? get userEmail => _userEmail;
   String? get userLevel => _userLevel;
   String? get lastVerificationDebugCode => _lastVerificationDebugCode;
   String? get lastResetDebugCode => _lastResetDebugCode;
-  String? get loginChallengeId => _loginChallengeId;
-  String? get lastLoginOtpDebugCode => _lastLoginOtpDebugCode;
   List<InterestModel> get userInterestModels => _userInterestModels;
   List<String> get userInterests =>
       _userInterestModels.map((m) => m.label).toList();
@@ -48,7 +43,7 @@ class AuthProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
 
       _isLoggedIn = token != null;
-      _hasTakenTest = prefs.getBool('hasTakenTest') ?? false;
+      _hasTakenTest = false;
       _isEmailVerified = false;
       _needsInterests = false;
 
@@ -87,11 +82,7 @@ class AuthProvider extends ChangeNotifier {
         return;
       }
       await _applyProfile(data);
-      _needsInterests =
-          _isLoggedIn &&
-          _isEmailVerified &&
-          _userInterestModels.isEmpty &&
-          !_hasTakenTest;
+      _needsInterests = _userInterestModels.isEmpty;
     } catch (_) {
       await ApiService.clearToken();
       final prefs = await SharedPreferences.getInstance();
@@ -100,14 +91,13 @@ class AuthProvider extends ChangeNotifier {
       await prefs.remove('userEmail');
       await prefs.remove('userLevel');
       await prefs.remove('userInterests');
-      await prefs.remove('hasTakenTest');
       _isLoggedIn = false;
       _hasTakenTest = false;
       _isEmailVerified = false;
       _needsInterests = false;
       _userName = null;
       _userEmail = null;
-      _userLevel = 'A1';
+      _userLevel = null;
       _userInterestModels = [];
       notifyListeners();
     }
@@ -119,6 +109,7 @@ class AuthProvider extends ChangeNotifier {
     _userEmail = data['email'];
     _userLevel = data['level'] ?? 'A1';
     _isEmailVerified = data['is_email_verified'] == true;
+    _hasTakenTest = data['level_test_completed'] == true;
     final raw = data['interests'] ?? '';
     if ((raw as String).isNotEmpty) {
       final labels = raw.split(',');
@@ -148,80 +139,14 @@ class AuthProvider extends ChangeNotifier {
         email: email.trim(),
         password: password,
       );
-      _loginChallengeId = data['challenge_id']?.toString();
-      _lastLoginOtpDebugCode = data['debug_code']?.toString();
-      if (_loginChallengeId == null || _loginChallengeId!.isEmpty) {
-        _errorMessage = 'Login verification could not be started.';
-        notifyListeners();
-        return false;
-      }
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
 
-  Future<bool> verifyLoginOtp(String email, String code) async {
-    if (_loginChallengeId == null || _loginChallengeId!.isEmpty) {
-      _errorMessage = 'Please login again.';
-      notifyListeners();
-      return false;
-    }
-    if (code.trim().length != 6) {
-      _errorMessage = 'Please enter the 6-digit code';
-      notifyListeners();
-      return false;
-    }
-    _setLoading(true);
-    _errorMessage = null;
-    try {
-      await ApiService.verifyLoginOtp(
-        email: email.trim(),
-        challengeId: _loginChallengeId!,
-        code: code.trim(),
-      );
-      final data = await ApiService.getProfile();
-      final hasSavedLevel =
-          data['level'] != null && data['level'].toString().isNotEmpty;
-      await _applyProfile(data);
+      final user = data['user'] as Map<String, dynamic>?;
+      if (user != null) {
+        await _applyProfile(user);
+      }
+
       _isLoggedIn = true;
       _needsInterests = _userInterestModels.isEmpty;
-      _hasTakenTest = hasSavedLevel;
-      _loginChallengeId = null;
-      _lastLoginOtpDebugCode = null;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('hasTakenTest', hasSavedLevel);
-      notifyListeners();
-      return true;
-    } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
-      notifyListeners();
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<bool> resendLoginOtp(String email) async {
-    if (_loginChallengeId == null || _loginChallengeId!.isEmpty) {
-      _errorMessage = 'Please login again.';
-      notifyListeners();
-      return false;
-    }
-    _setLoading(true);
-    _errorMessage = null;
-    try {
-      final data = await ApiService.resendLoginOtp(
-        email: email.trim(),
-        challengeId: _loginChallengeId!,
-      );
-      _lastLoginOtpDebugCode = data['debug_code']?.toString();
-      notifyListeners();
       return true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
@@ -265,9 +190,13 @@ class AuthProvider extends ChangeNotifier {
       _lastVerificationDebugCode = data['verification_debug_code']?.toString();
       _userEmail = email.trim();
       _userName = name.trim();
-      _isLoggedIn = false;
+      _isLoggedIn = true;
       _isEmailVerified = false;
-      _needsInterests = false;
+      final user = data['user'] as Map<String, dynamic>?;
+      if (user != null) {
+        await _applyProfile(user);
+      }
+      _needsInterests = _userInterestModels.isEmpty;
       notifyListeners();
       return true;
     } catch (e) {
@@ -279,8 +208,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ بعد التحقق: isLoggedIn=true + needsInterests=true
-  //    → _AppRouter يعرض InterestsScreen وليس TestScreen مباشرة
   Future<bool> verifyEmail(String email, String code) async {
     _setLoading(true);
     _errorMessage = null;
@@ -290,10 +217,8 @@ class AuthProvider extends ChangeNotifier {
       await _applyProfile(data);
       _isLoggedIn = true;
       _isEmailVerified = true;
-      _hasTakenTest = false;
-      _needsInterests = true; // ✅ يجب اختيار الاهتمامات أولاً
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('hasTakenTest', false);
+      _needsInterests = _userInterestModels.isEmpty;
+      _lastVerificationDebugCode = null;
       notifyListeners();
       return true;
     } catch (e) {
@@ -303,6 +228,12 @@ class AuthProvider extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  void skipVerification() {
+    _isEmailVerified = false;
+    _lastVerificationDebugCode = null;
+    notifyListeners();
   }
 
   Future<bool> resendVerificationCode(String email) async {
@@ -379,7 +310,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ بعد الحفظ: needsInterests=false → Router يقفز لـ TestScreen
   Future<bool> updateInterestsModels(List<InterestModel> models) async {
     final List<InterestModel> oldModels = List.from(_userInterestModels);
     try {
@@ -393,7 +323,7 @@ class AuthProvider extends ChangeNotifier {
         await prefs.setString('userInterests', labelsList.join(','));
       }
 
-      _needsInterests = false; // ✅ انتهى من الاهتمامات
+      _needsInterests = false;
       notifyListeners();
       return true;
     } catch (e) {
@@ -404,7 +334,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ✅ تخطّي الاهتمامات → needsInterests=false مباشرة
   void skipInterests() {
     _needsInterests = false;
     notifyListeners();
@@ -466,10 +395,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> completeQuiz({String? detectedLevel}) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('hasTakenTest', true);
-    _hasTakenTest = true;
-    if (detectedLevel != null) await updateLevel(detectedLevel);
+    if (detectedLevel != null) {
+      await updateLevel(detectedLevel);
+      _hasTakenTest = true;
+    }
     notifyListeners();
   }
 
@@ -483,7 +412,7 @@ class AuthProvider extends ChangeNotifier {
     _needsInterests = false;
     _userName = null;
     _userEmail = null;
-    _userLevel = 'A1';
+    _userLevel = null;
     _userInterestModels = [];
     _errorMessage = null;
     notifyListeners();
