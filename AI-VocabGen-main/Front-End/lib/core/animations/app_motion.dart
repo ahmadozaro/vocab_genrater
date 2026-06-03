@@ -19,7 +19,7 @@ class AppMotion {
       settings: settings,
       transitionDuration: normal,
       reverseTransitionDuration: fast,
-      pageBuilder: (_, __, ___) => page,
+      pageBuilder: (_, _, _) => page,
       transitionsBuilder: (_, animation, secondaryAnimation, child) {
         final curved = CurvedAnimation(parent: animation, curve: curve);
         final exit = CurvedAnimation(parent: secondaryAnimation, curve: curve);
@@ -256,9 +256,10 @@ class _PulseLoaderState extends State<PulseLoader>
   @override
   Widget build(BuildContext context) {
     return ScaleTransition(
-      scale: Tween<double>(begin: 0.88, end: 1.08).animate(
-        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-      ),
+      scale: Tween<double>(
+        begin: 0.88,
+        end: 1.08,
+      ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
       child: Container(
         width: widget.size,
         height: widget.size,

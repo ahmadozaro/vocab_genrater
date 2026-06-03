@@ -42,9 +42,20 @@ class ThemeProvider extends ChangeNotifier {
 
   ThemeData get lightTheme => ThemeData(
     brightness: Brightness.light,
-    colorSchemeSeed: const Color(0xFF4C6FFF),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.primary,
+      brightness: Brightness.light,
+      primary: AppColors.primary,
+      secondary: AppColors.secondary,
+      surface: AppColors.card,
+      onSurface: AppColors.textDark,
+    ),
     scaffoldBackgroundColor: AppColors.background,
     cardColor: AppColors.card,
+    textTheme: ThemeData.light().textTheme.apply(
+      bodyColor: AppColors.textDark,
+      displayColor: AppColors.textDark,
+    ),
     dialogTheme: DialogThemeData(backgroundColor: AppColors.card),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -57,13 +68,45 @@ class ThemeProvider extends ChangeNotifier {
 
   ThemeData get darkTheme => ThemeData(
     brightness: Brightness.dark,
-    colorSchemeSeed: const Color(0xFF4C6FFF),
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.primary,
+      brightness: Brightness.dark,
+      primary: AppColors.primary,
+      secondary: AppColors.secondary,
+      surface: AppColors.card,
+      onSurface: AppColors.textDark,
+    ),
     scaffoldBackgroundColor: AppColors.background,
     cardColor: AppColors.card,
+    textTheme: ThemeData.dark().textTheme.apply(
+      bodyColor: AppColors.textDark,
+      displayColor: AppColors.textDark,
+    ),
     dialogTheme: DialogThemeData(backgroundColor: AppColors.card),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: AppColors.card,
+      hintStyle: TextStyle(color: AppColors.textLight),
+      labelStyle: TextStyle(color: AppColors.textLight),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.primary
+            : AppColors.textLight,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.primary.withOpacity(0.44)
+            : AppColors.border,
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: AppColors.card,
+      indicatorColor: AppColors.primaryLight,
+      labelTextStyle: WidgetStatePropertyAll(
+        TextStyle(color: AppColors.textLight),
+      ),
     ),
     elevatedButtonTheme: _elevatedButtonTheme,
     pageTransitionsTheme: _pageTransitions,

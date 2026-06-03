@@ -1,11 +1,12 @@
 import 'package:ai/features/quiz/providers/quiz_provider.dart';
-import 'package:ai/features/quiz/widgets/quiz_history_card.dart';
+import 'package:ai/features/quiz/widgets/quiz_history_table.dart';
 import 'package:ai/features/quiz/widgets/quiz_option_button.dart';
 import 'package:ai/features/quiz/widgets/quiz_question_card.dart';
 import 'package:ai/features/quiz/widgets/quiz_result_dialog.dart';
 import 'package:ai/features/quiz/screens/sm2_review_quiz.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ai/core/animations/app_motion.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
 
@@ -72,115 +73,115 @@ class _QuizScreenState extends State<QuizScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // بطاقة بدء الكويز
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.primary, AppColors.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          AnimatedEntry(
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              children: [
-                Icon(Icons.quiz, color: Colors.white, size: 60),
-                SizedBox(height: 16),
-                Text(
-                  "Test Your Vocabulary!",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  "Practice words you've learned and track your progress",
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        onPressed: quiz.startQuiz,
-                        child: Text(
-                          "Recent Quiz",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.8),
-                          foregroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                        ),
-                        onPressed: quiz.startAiReviewQuiz,
-                        child: Text(
-                          "AI Review",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryDark,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => Sm2ReviewQuizScreen(),
-                        ),
-                      );
-                    },
-                    icon: Icon(Icons.replay_circle_filled),
-                    label: Text(
-                      "SM2 Review Quiz",
-                      style: TextStyle(fontWeight: FontWeight.bold),
+              child: Column(
+                children: [
+                  Icon(Icons.quiz, color: Colors.white, size: 60),
+                  SizedBox(height: 16),
+                  Text(
+                    "Test Your Vocabulary!",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: 8),
+                  Text(
+                    "Practice words you've learned and track your progress",
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppColors.primary,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          onPressed: quiz.startQuiz,
+                          child: Text(
+                            "Recent Quiz",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(0.8),
+                            foregroundColor: AppColors.primary,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                          ),
+                          onPressed: quiz.startAiReviewQuiz,
+                          child: Text(
+                            "AI Review",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryDark,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          AppMotion.sharedRoute(Sm2ReviewQuizScreen()),
+                        );
+                      },
+                      icon: Icon(Icons.replay_circle_filled),
+                      label: Text(
+                        "SM2 Review Quiz",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           SizedBox(height: 28),
@@ -196,7 +197,7 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
             ),
             SizedBox(height: 12),
-            ...quiz.history.map((h) => QuizHistoryCard(history: h)),
+            QuizHistoryTable(history: quiz.history),
           ],
         ],
       ),
@@ -247,19 +248,24 @@ class _QuizScreenState extends State<QuizScreen> {
                   ),
                 ),
                 SizedBox(height: 8),
-                QuizQuestionCard(
-                  question: question.question,
-                  currentIndex: quiz.currentIndex,
-                  total: quiz.currentQuiz!.questions.length,
+                AnimatedEntry(
+                  child: QuizQuestionCard(
+                    question: question.question,
+                    currentIndex: quiz.currentIndex,
+                    total: quiz.currentQuiz!.questions.length,
+                  ),
                 ),
                 SizedBox(height: 24),
-                ...question.options.map(
-                  (opt) => QuizOptionButton(
-                    label: opt,
-                    selectedAnswer: quiz.selectedAnswer,
-                    correctAnswer: question.correctAnswer,
-                    isAnswered: quiz.isAnswered,
-                    onTap: () => quiz.selectAnswer(opt),
+                ...question.options.asMap().entries.map(
+                  (entry) => AnimatedEntry(
+                    index: entry.key + 1,
+                    child: QuizOptionButton(
+                      label: entry.value,
+                      selectedAnswer: quiz.selectedAnswer,
+                      correctAnswer: question.correctAnswer,
+                      isAnswered: quiz.isAnswered,
+                      onTap: () => quiz.selectAnswer(entry.value),
+                    ),
                   ),
                 ),
                 SizedBox(height: 20),

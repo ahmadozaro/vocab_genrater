@@ -29,11 +29,14 @@ class SettingsTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border.withOpacity(0.45)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              color: Colors.black.withOpacity(
+                AppColors.isDarkMode ? 0.16 : 0.04,
+              ),
+              blurRadius: AppColors.isDarkMode ? 12 : 8,
+              offset: Offset(0, AppColors.isDarkMode ? 6 : 4),
             ),
           ],
         ),

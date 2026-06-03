@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:ai/core/animations/app_motion.dart';
 import 'package:ai/core/models/word.dart';
 import 'package:ai/core/theme/colors.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
 
 class WordResultCard extends StatefulWidget {
   final WordModel word;
@@ -43,53 +44,52 @@ class _WordResultCardState extends State<WordResultCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    final definition = widget.word.definition;
+
+    return AnimatedLearningCard(
       padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── اسم الكلمة + صوت ────────────────────────────
           Row(
             children: [
-              Text(
-                widget.word.text,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textDark,
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.school, color: AppColors.primary),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.word.text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
                 ),
               ),
-              Spacer(),
               if (widget.word.audio != null)
                 IconButton(
+                  tooltip: 'Play pronunciation',
                   onPressed: _playAudio,
                   icon: Icon(Icons.volume_up, color: AppColors.primary),
                 ),
             ],
           ),
-          Divider(),
-          SizedBox(height: 8),
-
-          // ─── التعريف الإنجليزي ────────────────────────────
-          Text(
-            "Definition",
-            style: TextStyle(fontSize: 13, color: AppColors.textLight),
-          ),
+          Divider(height: 28),
+          _Label(text: 'Definition'),
           SizedBox(height: 4),
           Text(
-            widget.word.definition ?? '',
+            definition == null || definition.isEmpty
+                ? 'No definition found yet.'
+                : definition,
             style: TextStyle(
               fontSize: 15,
               color: AppColors.textDark,
@@ -97,42 +97,40 @@ class _WordResultCardState extends State<WordResultCard> {
             ),
           ),
           SizedBox(height: 16),
-
-          // ─── المعنى بالعربي (يدخله المستخدم) ────────────
-          Text(
-            "المعنى بالعربية",
-            style: TextStyle(fontSize: 13, color: AppColors.textLight),
-          ),
+          _Label(text: 'Arabic meaning'),
           SizedBox(height: 8),
           TextField(
             controller: widget.arabicController,
+            textDirection: TextDirection.rtl,
             decoration: InputDecoration(
-              hintText: "أدخل المعنى بالعربية...",
+              hintText: 'اكتب المعنى بالعربية...',
+              hintTextDirection: TextDirection.rtl,
+              filled: true,
+              fillColor: AppColors.background,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: AppColors.border),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.primary),
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: AppColors.primary, width: 1.5),
               ),
               contentPadding: EdgeInsets.symmetric(
                 horizontal: 12,
-                vertical: 10,
+                vertical: 12,
               ),
             ),
           ),
-
-          // ─── الأمثلة ─────────────────────────────────────
           if (widget.word.examples.isNotEmpty) ...[
             SizedBox(height: 16),
-            Text(
-              "Examples",
-              style: TextStyle(fontSize: 13, color: AppColors.textLight),
-            ),
+            _Label(text: 'Examples'),
             SizedBox(height: 8),
             ...widget.word.examples.map(
-              (e) => Padding(
+              (example) => Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,7 +139,7 @@ class _WordResultCardState extends State<WordResultCard> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        e,
+                        example,
                         style: TextStyle(
                           fontSize: 14,
                           color: AppColors.textDark,
@@ -155,6 +153,24 @@ class _WordResultCardState extends State<WordResultCard> {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _Label extends StatelessWidget {
+  final String text;
+
+  const _Label({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        color: AppColors.textLight,
+        fontWeight: FontWeight.w600,
       ),
     );
   }

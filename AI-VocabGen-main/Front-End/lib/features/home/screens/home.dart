@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/models/word.dart';
+import 'package:ai/core/animations/app_motion.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/add_word/providers/word_provider.dart';
@@ -103,73 +104,87 @@ class _HomeContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF9F7BFF), Color(0xFF755DC1)],
+        AnimatedEntry(
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF9F7BFF), Color(0xFF755DC1)],
+              ),
+              borderRadius: BorderRadius.circular(20),
             ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Active Words Today',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              SizedBox(height: 8),
-              Text(
-                '$active / 10 Words',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Active Words Today',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-              ),
-              SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
+                SizedBox(height: 8),
+                Text(
+                  '$active / 10 Words',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 12),
+                AnimatedProgressBar(
                   value: dailyValue,
                   backgroundColor: Colors.white30,
                   color: Colors.white,
                   minHeight: 8,
                 ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                dueCount > 0
-                    ? 'You have $dueCount words ready for SM2 review.'
-                    : 'No words due right now. Keep adding and reviewing.',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-            ],
+                SizedBox(height: 8),
+                Text(
+                  dueCount > 0
+                      ? 'You have $dueCount words ready for SM2 review.'
+                      : 'No words due right now. Keep adding and reviewing.',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
           ),
         ),
         SizedBox(height: 24),
         Row(
           children: [
-            _StatCard(
-              icon: Icons.local_fire_department,
-              label: 'Streak',
-              value: '$streak Days',
-              color: AppColors.warning,
+            Expanded(
+              child: AnimatedEntry(
+                index: 1,
+                child: _StatCard(
+                  icon: Icons.local_fire_department,
+                  label: 'Streak',
+                  value: '$streak Days',
+                  color: AppColors.warning,
+                ),
+              ),
             ),
             SizedBox(width: 12),
-            _StatCard(
-              icon: Icons.star,
-              label: 'Mastered',
-              value: '$mastered Words',
-              color: AppColors.success,
+            Expanded(
+              child: AnimatedEntry(
+                index: 2,
+                child: _StatCard(
+                  icon: Icons.star,
+                  label: 'Mastered',
+                  value: '$mastered Words',
+                  color: AppColors.success,
+                ),
+              ),
             ),
             SizedBox(width: 12),
-            _StatCard(
-              icon: Icons.access_time,
-              label: 'Due Today',
-              value: '$dueCount Cards',
-              color: AppColors.primary,
+            Expanded(
+              child: AnimatedEntry(
+                index: 3,
+                child: _StatCard(
+                  icon: Icons.access_time,
+                  label: 'Due Today',
+                  value: '$dueCount Cards',
+                  color: AppColors.primary,
+                ),
+              ),
             ),
           ],
         ),
@@ -189,11 +204,14 @@ class _HomeContent extends StatelessWidget {
             style: TextStyle(color: AppColors.textLight),
           )
         else
-          ...dueWords.map(
-            (word) => _WordCard(
-              word: word.text,
-              meaning: word.arabicMeaning ?? '',
-              level: word.status ?? 'new',
+          ...dueWords.asMap().entries.map(
+            (entry) => AnimatedEntry(
+              index: entry.key + 4,
+              child: _WordCard(
+                word: entry.value.text,
+                meaning: entry.value.arabicMeaning ?? '',
+                level: entry.value.status ?? 'new',
+              ),
             ),
           ),
       ],
@@ -216,31 +234,25 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 22),
-            SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppColors.textDark,
-              ),
+    return AnimatedLearningCard(
+      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: AppColors.textDark,
             ),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11, color: AppColors.textLight),
-            ),
-          ],
-        ),
+          ),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: AppColors.textLight),
+          ),
+        ],
       ),
     );
   }
@@ -259,13 +271,9 @@ class _WordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedLearningCard(
       margin: EdgeInsets.only(bottom: 10),
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-      ),
       child: Row(
         children: [
           Container(

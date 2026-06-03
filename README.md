@@ -27,11 +27,13 @@ flutter run
 ### Steps
 
 1. **Add your API key** to `AI-VocabGen-main/Back-End/.env`:
+
    ```env
    GROQ_API_KEY=your_key_here
    ```
 
 2. **Build and start the container**:
+
    ```bash
    docker compose up --build
    ```

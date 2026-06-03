@@ -1,5 +1,7 @@
 import 'package:ai/core/providers/auth_provider.dart';
 import 'package:ai/core/providers/theme_provider.dart';
+import 'package:ai/core/theme/colors.dart';
+import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/interests/screens/interests.dart';
 import 'package:ai/features/quiz/providers/quiz_provider.dart';
 import 'package:ai/features/quiz/providers/sm2_quiz_provider.dart';
@@ -99,6 +101,14 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const LearningAppBar(
+        title: 'AI VOCABGEN',
+        subtitle: 'Preparing your learning space',
+        icon: Icons.auto_stories_rounded,
+      ),
+      body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+    );
   }
 }

@@ -68,10 +68,11 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _refreshProfile() async {
     try {
       final data = await ApiService.getProfile();
+      final prefs = await SharedPreferences.getInstance();
+      final skippedInterests = prefs.getBool('skippedInterests') ?? false;
       final serverInterests = data['interests'] ?? '';
       if ((serverInterests as String).isEmpty &&
           _userInterestModels.isNotEmpty) {
-        final prefs = await SharedPreferences.getInstance();
         _userName = data['name'];
         _userEmail = data['email'];
         _userLevel = data['level'] ?? 'A1';
@@ -82,7 +83,7 @@ class AuthProvider extends ChangeNotifier {
         return;
       }
       await _applyProfile(data);
-      _needsInterests = _userInterestModels.isEmpty;
+      _needsInterests = _userInterestModels.isEmpty && !skippedInterests;
     } catch (_) {
       await ApiService.clearToken();
       final prefs = await SharedPreferences.getInstance();
@@ -105,11 +106,12 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _applyProfile(Map<String, dynamic> data) async {
     final prefs = await SharedPreferences.getInstance();
+    final skippedLevelTest = prefs.getBool('skippedLevelTest') ?? false;
     _userName = data['name'];
     _userEmail = data['email'];
     _userLevel = data['level'] ?? 'A1';
     _isEmailVerified = data['is_email_verified'] == true;
-    _hasTakenTest = data['level_test_completed'] == true;
+    _hasTakenTest = data['level_test_completed'] == true || skippedLevelTest;
     final raw = data['interests'] ?? '';
     if ((raw as String).isNotEmpty) {
       final labels = raw.split(',');
@@ -190,13 +192,9 @@ class AuthProvider extends ChangeNotifier {
       _lastVerificationDebugCode = data['verification_debug_code']?.toString();
       _userEmail = email.trim();
       _userName = name.trim();
-      _isLoggedIn = true;
       _isEmailVerified = false;
-      final user = data['user'] as Map<String, dynamic>?;
-      if (user != null) {
-        await _applyProfile(user);
-      }
-      _needsInterests = _userInterestModels.isEmpty;
+      _isLoggedIn = false;
+      _needsInterests = false;
       notifyListeners();
       return true;
     } catch (e) {
@@ -321,6 +319,7 @@ class AuthProvider extends ChangeNotifier {
         await ApiService.updateInterests(labelsList);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userInterests', labelsList.join(','));
+        await prefs.setBool('skippedInterests', false);
       }
 
       _needsInterests = false;
@@ -334,7 +333,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  void skipInterests() {
+  Future<void> skipInterests() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('skippedInterests', true);
     _needsInterests = false;
     notifyListeners();
   }
@@ -398,7 +399,18 @@ class AuthProvider extends ChangeNotifier {
     if (detectedLevel != null) {
       await updateLevel(detectedLevel);
       _hasTakenTest = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('skippedLevelTest', false);
     }
+    notifyListeners();
+  }
+
+  Future<void> skipLevelTest() async {
+    final prefs = await SharedPreferences.getInstance();
+    _userLevel ??= 'A1';
+    _hasTakenTest = true;
+    await prefs.setBool('skippedLevelTest', true);
+    await prefs.setString('userLevel', _userLevel!);
     notifyListeners();
   }
 
