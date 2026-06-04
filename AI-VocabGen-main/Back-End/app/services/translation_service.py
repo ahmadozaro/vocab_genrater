@@ -44,7 +44,7 @@ class TranslationService:
         clean = (text or "").strip()
         normalized = " ".join(clean.lower().split())
         if not normalized:
-            return TranslationResult(None, "none", "empty text")
+            return TranslationResult(None, "fallback", "empty text")
 
         if normalized in _LOCAL_EN_AR:
             return TranslationResult(_LOCAL_EN_AR[normalized], "local")
@@ -55,4 +55,4 @@ class TranslationService:
             translated = GoogleTranslator(source=self.source, target=self.target).translate(clean)
             return TranslationResult(translated, "deep-translator")
         except Exception as exc:
-            return TranslationResult(None, "unavailable", str(exc))
+            return TranslationResult(None, "fallback", str(exc))

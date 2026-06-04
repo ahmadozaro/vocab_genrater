@@ -41,32 +41,7 @@ with engine.begin() as connection:
         connection.exec_driver_sql(
             "ALTER TABLE users ADD COLUMN is_email_verified INTEGER DEFAULT 1 NOT NULL"
         )
-    if "login_otp_code" not in columns:
-        connection.exec_driver_sql("ALTER TABLE users ADD COLUMN login_otp_code VARCHAR")
-    if "login_otp_expires_at" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN login_otp_expires_at DATETIME"
-        )
-    if "login_otp_used" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN login_otp_used BOOLEAN DEFAULT 1 NOT NULL"
-        )
-    if "login_otp_attempts" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN login_otp_attempts INTEGER DEFAULT 0 NOT NULL"
-        )
-    if "login_otp_resend_count" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN login_otp_resend_count INTEGER DEFAULT 0 NOT NULL"
-        )
-    if "login_otp_challenge_id" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN login_otp_challenge_id VARCHAR"
-        )
-    if "login_otp_last_sent_at" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN login_otp_last_sent_at DATETIME"
-        )
+
 
 app.include_router(user_router.router)
 app.include_router(word_router.router)

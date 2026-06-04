@@ -254,7 +254,13 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     final leave = await _showWarning(
       "If you leave now, this quiz will not be saved, SM2 will not be updated, and the daily streak will not increase.",
     );
-    if (leave) await sm2.abandon();
+    if (leave) {
+      await sm2.abandon();
+      if (mounted) {
+        context.read<ProgressProvider>().refresh();
+        context.read<WordProvider>().loadWords();
+      }
+    }
     return leave;
   }
 

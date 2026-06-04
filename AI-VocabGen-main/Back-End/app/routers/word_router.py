@@ -51,7 +51,7 @@ def _translate_only(word_text: str) -> dict:
         "text": word_text.strip(),
         "arabicMeaning": result.translation,
         "translationAr": result.translation,
-        "provider": result.provider or "translation_service",
+        "provider": result.provider or "fallback",
     }
 
 
@@ -287,7 +287,7 @@ def create_word(
     translation_provider = (
         "manual"
         if manual_translation
-        else (translation.provider if translation.translation else "ai")
+        else (translation.provider if translation.translation else "fallback")
     )
 
     if primary_translation:
@@ -405,10 +405,22 @@ def create_word_sentence(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    _get_user_word(db, word_id, current_user.id)
     word = _get_user_word(db, word_id, current_user.id)
+    sentence_text = sentence.text.strip()
+    if not sentence_text:
+        raise HTTPException(status_code=400, detail="Sentence text is required")
+    exists = (
+        db.query(WordExample)
+        .filter(
+            WordExample.word_id == word.word_id,
+            WordExample.sentence_en == sentence_text,
+        )
+        .first()
+    )
+    if exists:
+        return {"sentenceId": exists.id, "text": exists.sentence_en, "wordId": word.id}
     db_sentence = WordExample(
-        sentence_en=sentence.text,
+        sentence_en=sentence_text,
         word_id=word.word_id,
     )
     db.add(db_sentence)

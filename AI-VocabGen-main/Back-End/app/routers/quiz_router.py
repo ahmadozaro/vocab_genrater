@@ -1,6 +1,6 @@
 import json
 import random
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -61,21 +61,11 @@ def _format_start_question(question_text: str, options: list[str], correct: str)
     }
 
 
-def _is_due_word(word: Word) -> bool:
-    if not word.next_review_at:
-        return False
-    due_date = word.next_review_at
-    if due_date.tzinfo is None:
-        due_date = due_date.replace(tzinfo=timezone.utc)
-    return due_date <= datetime.now(timezone.utc)
-
-
-def _select_review_words(words: list[Word], limit: int = 10) -> list[Word]:
+def _select_quiz_words(words: list[Word], limit: int = 10) -> list[Word]:
     selected: list[Word] = []
     seen: set[int] = set()
 
     groups = [
-        sorted([w for w in words if _is_due_word(w)], key=lambda w: w.next_review_at or datetime.utcnow()),
         sorted(words, key=lambda w: (w.score if w.score is not None else 0, -w.id)),
         sorted(words, key=lambda w: w.id, reverse=True),
         sorted(words, key=lambda w: w.id),
@@ -181,7 +171,7 @@ def create_ai_review_quiz(
     if len(words) < 4:
         raise HTTPException(status_code=400, detail="Add at least 4 words to start an AI review quiz")
 
-    selected_words = _select_review_words(words, limit=10)
+    selected_words = _select_quiz_words(words, limit=10)
     word_dicts = [
         {"text": w.text, "arabicMeaning": w.arabicMeaning or "", "wordId": w.id}
         for w in selected_words if w.text
@@ -249,6 +239,8 @@ def submit_quiz(
     current_user: User = Depends(get_current_user),
 ):
     quiz = _get_user_quiz(db, quiz_id, current_user.id)
+    if quiz.status != "in_progress":
+        raise HTTPException(status_code=400, detail="This quiz was already submitted")
     questions = (
         db.query(Question)
         .filter(Question.quizId == quiz.quizId)

@@ -63,12 +63,4 @@ class ResendVerificationRequest(BaseModel):
     email: EmailStr
 
 
-class LoginOtpVerifyRequest(BaseModel):
-    email: EmailStr
-    challenge_id: str
-    code: str
 
-
-class LoginOtpResendRequest(BaseModel):
-    email: EmailStr
-    challenge_id: str

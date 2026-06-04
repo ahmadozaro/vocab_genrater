@@ -39,7 +39,3 @@ class SM2QuizItem(Base):
 
     quiz = relationship("SM2Quiz", back_populates="items")
     user_word = relationship("Word", back_populates="sm2_items")
-
-    @property
-    def wordId(self) -> int:
-        return self.userWordId

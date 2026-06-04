@@ -8,3 +8,15 @@ build/
 htmlcov/
 .pytest_cache/
 .python_packages/
+.env
+.venv/
+.idea/
+.dart_tool/
+.pub-cache/
+.packages
+pubspec.lock
+.vscode/
+Front-End/build/
+Front-End/.dart_tool/
+Front-End/.packages
+Front-End/pubspec.lock

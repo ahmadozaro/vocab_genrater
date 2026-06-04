@@ -115,6 +115,7 @@ class QuizProvider extends ChangeNotifier {
         quizId: _currentQuiz!.quizId,
         answers: _userAnswers,
       );
+      await loadHistory();
     } catch (_) {}
     _state = QuizState.finished;
     notifyListeners();
@@ -139,5 +140,6 @@ class QuizProvider extends ChangeNotifier {
     _errorMessage = null;
     _userAnswers.clear();
     notifyListeners();
+    loadHistory();
   }
 }
