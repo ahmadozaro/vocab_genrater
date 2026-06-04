@@ -7,9 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.services.email_service import EmailDeliveryError, is_email_enabled, send_verification_code
 
 logger = logging.getLogger(__name__)
 from app.models.notification_model import Notification
+from app.models.interest_model import Interest
 from app.models.user_model import User
 from app.schemas.user_schema import (
     ForgotPasswordRequest,
@@ -405,3 +407,4 @@ def update_profile(
     db.commit()
     db.refresh(user)
     return _user_response(user)
+
