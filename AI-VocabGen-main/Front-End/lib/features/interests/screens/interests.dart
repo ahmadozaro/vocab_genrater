@@ -19,14 +19,12 @@ class _InterestsScreenState extends State<InterestsScreen> {
   Future<void> _save() async {
     final auth = context.read<AuthProvider>();
     final ok = _selected.isEmpty
-        ? true
+        ? await _skip(showMessage: false)
         : await auth.updateInterestsModels(_selected);
 
     if (!mounted) return;
 
-    if (ok) {
-      if (_selected.isEmpty) auth.skipInterests();
-    } else {
+    if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(auth.errorMessage ?? 'Failed to save interests.'),
@@ -38,6 +36,25 @@ class _InterestsScreenState extends State<InterestsScreen> {
         ),
       );
     }
+  }
+
+  Future<bool> _skip({bool showMessage = true}) async {
+    final auth = context.read<AuthProvider>();
+    await auth.skipInterests();
+    if (!mounted) return true;
+    if (showMessage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Interests skipped. You can add them later.'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    }
+    return true;
   }
 
   @override
@@ -96,10 +113,22 @@ class _InterestsScreenState extends State<InterestsScreen> {
                       )
                     : Text(
                         _selected.isEmpty
-                            ? 'Skip - Take Level Test'
+                            ? 'Continue to Level Test'
                             : 'Save - Take Level Test',
                         style: const TextStyle(color: Colors.white),
                       ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: auth.isLoading ? null : () => _skip(),
+              icon: Icon(Icons.skip_next_rounded, color: AppColors.primary),
+              label: Text(
+                'Skip interests',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],

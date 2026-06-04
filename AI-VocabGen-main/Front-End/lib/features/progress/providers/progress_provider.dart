@@ -17,7 +17,11 @@ class ProgressProvider extends ChangeNotifier {
   int get activeWordsCount =>
       _intValue(_progress['activeWordsCount'] ?? _progress['newWords']);
   int get masteredWords => _intValue(_progress['masteredWords']);
-  int get dailyStreak => _intValue(_progress['dailyStreak']);
+  int get dailyStreak {
+    final value = _intValue(_progress['dailyStreak']);
+    return value <= 0 ? 1 : value;
+  }
+
   int get completedSm2Quizzes => _intValue(_progress['completedSm2Quizzes']);
   int get dueReviewCount =>
       _intValue(_due['dueCount'] ?? _progress['dueReviewCount']);

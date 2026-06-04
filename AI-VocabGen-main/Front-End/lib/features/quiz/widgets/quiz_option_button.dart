@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ai/core/animations/app_motion.dart';
 import 'package:ai/core/theme/colors.dart';
 
 class QuizOptionButton extends StatelessWidget {
@@ -41,8 +42,10 @@ class QuizOptionButton extends StatelessWidget {
       borderColor = AppColors.primary;
     }
 
-    return GestureDetector(
+    return PressableScale(
       onTap: isAnswered ? null : onTap,
+      enabled: !isAnswered,
+      borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: 12),
@@ -66,7 +69,12 @@ class QuizOptionButton extends StatelessWidget {
                 ),
               ),
             ),
-            if (icon != null) Icon(icon, color: textColor, size: 22),
+            AnimatedSwitcher(
+              duration: AppMotion.fast,
+              child: icon == null
+                  ? const SizedBox(width: 22, key: ValueKey('empty'))
+                  : Icon(icon, key: ValueKey(icon), color: textColor, size: 22),
+            ),
           ],
         ),
       ),

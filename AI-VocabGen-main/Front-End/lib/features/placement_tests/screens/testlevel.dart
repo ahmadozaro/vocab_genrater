@@ -105,6 +105,16 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
+  Future<void> _skipLevelTest() async {
+    await context.read<AuthProvider>().skipLevelTest();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => Navigation()),
+      (route) => false,
+    );
+  }
+
   void _showHintDialog(String hint) {
     showDialog(
       context: context,
@@ -171,6 +181,23 @@ class _TestScreenState extends State<TestScreen> {
                 ],
               ),
             ),
+            if (!widget.isRetake) ...[
+              SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: Icon(Icons.skip_next_rounded, color: AppColors.primary),
+                  label: Text(
+                    "Skip Level Test",
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  onPressed: _skipLevelTest,
+                ),
+              ),
+            ],
             SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,

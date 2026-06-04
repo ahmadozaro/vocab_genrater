@@ -6,6 +6,7 @@ import 'package:ai/features/add_word/widgets/suggested_words.dart';
 import 'package:ai/features/progress/providers/progress_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:ai/core/animations/app_motion.dart';
 import 'package:ai/core/models/word.dart';
 import 'package:ai/core/services/api.dart';
 import 'package:ai/core/theme/colors.dart';
@@ -170,14 +171,16 @@ class _AddWordScreenState extends State<AddWordScreen>
 
   @override
   Widget build(BuildContext context) {
+    final wordsCount = context.watch<WordProvider>().words.length;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: LearningAppBar(
         title: "Words",
         subtitle: "Build and review your vocabulary",
         icon: Icons.menu_book_rounded,
-        metricLabel: "Tabs",
-        metricValue: "3",
+        metricLabel: "Words",
+        metricValue: "$wordsCount",
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
@@ -231,10 +234,12 @@ class _AddWordScreenState extends State<AddWordScreen>
                     ),
                   ),
                   SizedBox(width: 10),
-                  GestureDetector(
+                  PressableScale(
                     onTap: provider.searchState == WordSearchState.loading
                         ? null
                         : _search,
+                    enabled: provider.searchState != WordSearchState.loading,
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
                       height: 55,
                       width: 55,
@@ -304,25 +309,27 @@ class _AddWordScreenState extends State<AddWordScreen>
                 ),
 
               if (_wordController.text.trim().isNotEmpty) ...[
-                WordResultCard(
-                  word:
-                      provider.searchResult ??
-                      WordModel(
-                        wordId: 0,
-                        text: _wordController.text.trim(),
-                        arabicMeaning: _arabicController.text.trim().isEmpty
-                            ? null
-                            : _arabicController.text.trim(),
-                        definition: null,
-                        status: 'new',
-                        sm2Repeats: 0,
-                        sm2EaseFactor: 2.5,
-                        sm2IntervalDays: 0,
-                        correctStreak: 0,
-                        wrongStreak: 0,
-                        score: 0,
-                      ),
-                  arabicController: _arabicController,
+                AnimatedEntry(
+                  child: WordResultCard(
+                    word:
+                        provider.searchResult ??
+                        WordModel(
+                          wordId: 0,
+                          text: _wordController.text.trim(),
+                          arabicMeaning: _arabicController.text.trim().isEmpty
+                              ? null
+                              : _arabicController.text.trim(),
+                          definition: null,
+                          status: 'new',
+                          sm2Repeats: 0,
+                          sm2EaseFactor: 2.5,
+                          sm2IntervalDays: 0,
+                          correctStreak: 0,
+                          wrongStreak: 0,
+                          score: 0,
+                        ),
+                    arabicController: _arabicController,
+                  ),
                 ),
                 SizedBox(height: 20),
                 CustomButton(
@@ -429,7 +436,10 @@ class _AddWordScreenState extends State<AddWordScreen>
               child: ListView.builder(
                 padding: EdgeInsets.symmetric(horizontal: 16),
                 itemCount: provider.words.length,
-                itemBuilder: (_, i) => WordListItem(word: provider.words[i]),
+                itemBuilder: (_, i) => AnimatedEntry(
+                  index: i,
+                  child: WordListItem(word: provider.words[i]),
+                ),
               ),
             ),
           ],
