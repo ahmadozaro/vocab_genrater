@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/word.dart';
 import '../models/quiz.dart';
+import '../models/notification.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:8000';
@@ -282,6 +283,24 @@ class ApiService {
     return list.map((e) => WordModel.fromJson(e)).toList();
   }
 
+  static Future<WordModel> getWord(int wordId) async {
+    final headers = await _authHeaders();
+    final res = await http.get(
+      Uri.parse('$baseUrl/words/$wordId'),
+      headers: headers,
+    );
+    return WordModel.fromJson(Map<String, dynamic>.from(_handle(res)));
+  }
+
+  static Future<void> deleteWord(int wordId) async {
+    final headers = await _authHeaders();
+    final res = await http.delete(
+      Uri.parse('$baseUrl/words/$wordId'),
+      headers: headers,
+    );
+    _handle(res);
+  }
+
   // ─── QUIZ ─────────────────────────────────────────────────────────
 
   static Future<QuizModel> createQuiz() async {
@@ -397,6 +416,53 @@ class ApiService {
       headers: headers,
     );
     return _handle(res);
+  }
+
+  // ─── NOTIFICATIONS ──────────────────────────────────────────────
+
+  static Future<List<AppNotification>> getNotifications() async {
+    final headers = await _authHeaders();
+    final res = await http.get(
+      Uri.parse('$baseUrl/notifications'),
+      headers: headers,
+    );
+    final list = _handle(res) as List;
+    return list.map((e) => AppNotification.fromJson(e)).toList();
+  }
+
+  static Future<Map<String, dynamic>> syncNotifications() async {
+    final headers = await _authHeaders();
+    final res = await http.get(
+      Uri.parse('$baseUrl/notifications/sync'),
+      headers: headers,
+    );
+    return _handle(res);
+  }
+
+  static Future<Map<String, dynamic>> markNotificationRead(int id) async {
+    final headers = await _authHeaders();
+    final res = await http.put(
+      Uri.parse('$baseUrl/notifications/$id/read'),
+      headers: headers,
+    );
+    return Map<String, dynamic>.from(_handle(res));
+  }
+
+  static Future<void> markAllNotificationsRead() async {
+    final headers = await _authHeaders();
+    await http.put(
+      Uri.parse('$baseUrl/notifications/read-all'),
+      headers: headers,
+    );
+  }
+
+  static Future<Map<String, dynamic>> getUnreadNotificationCount() async {
+    final headers = await _authHeaders();
+    final res = await http.get(
+      Uri.parse('$baseUrl/notifications/unread-count'),
+      headers: headers,
+    );
+    return Map<String, dynamic>.from(_handle(res));
   }
 
   // ─── ERROR HANDLER ────────────────────────────────────────────────

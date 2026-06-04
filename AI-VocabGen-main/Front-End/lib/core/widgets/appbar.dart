@@ -11,6 +11,7 @@ class LearningAppBar extends StatelessWidget implements PreferredSizeWidget {
   final PreferredSizeWidget? bottom;
   final bool showBackButton;
   final Widget? leading;
+  final List<Widget>? actions;
 
   const LearningAppBar({
     super.key,
@@ -23,6 +24,7 @@ class LearningAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.bottom,
     this.showBackButton = false,
     this.leading,
+    this.actions,
   });
 
   @override
@@ -137,6 +139,7 @@ class LearningAppBar extends StatelessWidget implements PreferredSizeWidget {
                           value: metricValue!,
                         ),
                       ],
+                      if (actions != null) ...actions!,
                     ],
                   ),
                   if (progress != null) ...[

@@ -1,4 +1,5 @@
 import 'package:ai/core/providers/auth_provider.dart';
+import 'package:ai/core/providers/notification_provider.dart';
 import 'package:ai/core/providers/theme_provider.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
@@ -28,6 +29,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()..loadUser()),
         ChangeNotifierProvider(create: (_) => WordProvider()),
         ChangeNotifierProvider(create: (_) => ProgressProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
       ],
       child: Consumer<ThemeProvider>(

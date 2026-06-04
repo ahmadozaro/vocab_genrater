@@ -43,6 +43,19 @@ with engine.begin() as connection:
         )
 
 
+    notif_columns = {
+        row[1]
+        for row in connection.exec_driver_sql("PRAGMA table_info(notifications)").fetchall()
+    }
+    if "title" not in notif_columns:
+        connection.exec_driver_sql(
+            "ALTER TABLE notifications ADD COLUMN title VARCHAR NOT NULL DEFAULT 'Notification'"
+        )
+    if "type" not in notif_columns:
+        connection.exec_driver_sql(
+            "ALTER TABLE notifications ADD COLUMN type VARCHAR"
+        )
+
 app.include_router(user_router.router)
 app.include_router(word_router.router)
 app.include_router(quiz_router.router)

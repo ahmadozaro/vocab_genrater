@@ -6,11 +6,10 @@ from app.core.database import get_db
 from app.models.notification_model import Notification
 from app.models.user_model import User
 from app.schemas.notification_schema import NotificationResponse
+from app.services.notification_service import NotificationService
 
 
 router = APIRouter()
-
-# TODO: Integrate real mobile push notifications later.
 
 
 def _get_notification(
@@ -38,6 +37,35 @@ def get_notifications(
     )
 
 
+@router.get("/notifications/unread-count")
+def get_unread_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    count = (
+        db.query(Notification)
+        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
+        .count()
+    )
+    return {"unreadCount": count}
+
+
+@router.get("/notifications/sync", response_model=list[NotificationResponse])
+def sync_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = NotificationService(db, current_user.id)
+    created = service.sync_all()
+    all_notifications = (
+        db.query(Notification)
+        .filter(Notification.user_id == current_user.id)
+        .order_by(Notification.created_at.desc())
+        .all()
+    )
+    return all_notifications
+
+
 @router.put("/notifications/{notification_id}/read", response_model=NotificationResponse)
 def mark_notification_read(
     notification_id: int,
@@ -49,6 +77,20 @@ def mark_notification_read(
     db.commit()
     db.refresh(notification)
     return notification
+
+
+@router.put("/notifications/read-all")
+def mark_all_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    (
+        db.query(Notification)
+        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
+        .update({"is_read": True})
+    )
+    db.commit()
+    return {"message": "All notifications marked as read"}
 
 
 @router.delete("/notifications/{notification_id}")

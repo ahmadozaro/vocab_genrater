@@ -15,6 +15,7 @@ class WordModel {
   final int correctStreak;
   final int wrongStreak;
   final int score;
+  final String? addedAt;
   final List<String> examples;
 
   WordModel({
@@ -34,6 +35,7 @@ class WordModel {
     required this.correctStreak,
     required this.wrongStreak,
     required this.score,
+    this.addedAt,
     this.examples = const [],
   });
 
@@ -66,6 +68,7 @@ class WordModel {
       correctStreak: json['correctStreak'] ?? json['correct_streak'] ?? 0,
       wrongStreak: json['wrongStreak'] ?? json['wrong_streak'] ?? 0,
       score: json['score'] ?? 0,
+      addedAt: json['addedAt']?.toString(),
       examples: List<String>.from(json['examples'] ?? []),
     );
   }

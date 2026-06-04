@@ -66,6 +66,7 @@ class WordResponse(BaseModel):
     activationDate: Optional[datetime] = None
     source: Optional[str] = None
     userId: Optional[int] = None
+    addedAt: Optional[datetime] = None
     examples: List[str] = []
 
     class Config:

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
+import 'package:ai/core/providers/notification_provider.dart';
 import 'package:ai/features/progress/providers/progress_provider.dart';
 
 class ProgressScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProgressProvider>().refresh();
+      context.read<NotificationProvider>().sync();
     });
   }
 

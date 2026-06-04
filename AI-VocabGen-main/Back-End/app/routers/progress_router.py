@@ -29,13 +29,13 @@ def _get_or_create_progress(db: Session, user_id: int) -> Progress:
 def _progress_response(db: Session, progress: Progress, notifications_count: int = 0) -> dict:
     user_id = progress.user_id
     now = datetime.utcnow()
-    mastered_words = db.query(Word).filter(Word.user_id == user_id, Word.status == "mastered").count()
-    new_words = db.query(Word).filter(Word.user_id == user_id, Word.status.in_(["new", "learning"])).count()
-    active_words = db.query(Word).filter(Word.user_id == user_id, Word.status != "pending").count()
+    base = db.query(Word).filter(Word.user_id == user_id)
+    mastered_words = base.filter(Word.status == "mastered").count()
+    new_words = base.filter(Word.status.in_(["new", "learning"])).count()
+    active_words = base.filter(Word.status != "pending").count()
     due_review_count = (
-        db.query(Word)
+        base
         .filter(
-            Word.user_id == user_id,
             Word.status != "pending",
             (Word.next_review_at == None) | (Word.next_review_at <= now),
         )

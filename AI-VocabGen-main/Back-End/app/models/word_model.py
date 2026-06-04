@@ -73,11 +73,12 @@ class Word(Base):
     last_reviewed_at = Column(DateTime, nullable=True)
     correct_streak = Column(Integer, default=0, nullable=False)
     wrong_streak = Column(Integer, default=0, nullable=False)
+    is_active = Column(Integer, default=1, nullable=False)
 
     owner = relationship("User", back_populates="words")
     dictionary_word = relationship("DictionaryWord", back_populates="user_words")
-    quiz_items = relationship("Question", back_populates="user_word")
-    sm2_items = relationship("SM2QuizItem", back_populates="user_word")
+    quiz_items = relationship("Question", back_populates="user_word", cascade="all, delete-orphan")
+    sm2_items = relationship("SM2QuizItem", back_populates="user_word", cascade="all, delete-orphan")
 
     @property
     def wordId(self) -> int:

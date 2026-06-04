@@ -81,10 +81,11 @@ def _word_response(word: Word) -> dict:
         "wrongStreak": word.wrong_streak or 0,
         "score": word.score or 0,
         "status": word.status or "new",
-        "isActive": word.status != "pending",
+        "isActive": bool(word.is_active),
         "activationDate": word.activation_date,
         "source": None,
         "userId": word.user_id,
+        "addedAt": word.added_at,
         "examples": examples,
     }
 

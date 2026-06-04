@@ -5,20 +5,12 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.schemas.user_schema import UserUpdatePassword
 
 from app.core.database import get_db
 
 logger = logging.getLogger(__name__)
-from app.core.config import settings
-from app.models.interest_model import Interest
+from app.models.notification_model import Notification
 from app.models.user_model import User
-from app.services.email_service import (
-    EmailDeliveryError,
-    is_email_enabled,
-    send_verification_code,
-    send_password_reset_code,
-)
 from app.schemas.user_schema import (
     ForgotPasswordRequest,
     ResendVerificationRequest,
@@ -27,6 +19,7 @@ from app.schemas.user_schema import (
     UserResponse,
     UserUpdateLevel,
     UserUpdateInterests,
+    UserUpdatePassword,
     UserUpdateProfile,
     VerifyEmailRequest,
 )
@@ -130,6 +123,15 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
             verification_sent = True
         except EmailDeliveryError:
             pass
+
+    welcome = Notification(
+        user_id=new_user.id,
+        title="Welcome to AI VocabGen!",
+        message="Start adding words and complete your first review quiz.",
+        type="welcome",
+    )
+    db.add(welcome)
+    db.commit()
 
     db.refresh(new_user)
 
