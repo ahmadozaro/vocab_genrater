@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.python_packages/
+*.db
+*.log
+.env
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter/Dart
+build/
+.dart_tool/
+.pub-cache/
+.packages
+pubspec.lock
+Front-End/build/
+Front-End/.dart_tool/
+Front-End/.packages
+Front-End/pubspec.lock

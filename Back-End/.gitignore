@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+build/
+.dart_tool/
+*.db
+app.db
+*.log
+uvicorn.err.log
+uvicorn.out.log
+backend_out.txt
+backend_err.txt
+uvicorn_pid.txt
+.python_packages/
+.env
