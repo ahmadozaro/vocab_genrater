@@ -285,7 +285,14 @@ def submit_sm2_quiz(
             continue
 
         quality = infer_quality(is_correct=is_correct, duration_seconds=duration, skipped=skipped or not user_answer.strip())
-        snapshot = apply_modified_sm2(word, quality, reviewed_at=now)
+        snapshot = apply_modified_sm2(
+            word,
+            quality,
+            reviewed_at=now,
+            is_correct=is_correct,
+            question_type=item.questionType,
+            user_answer=user_answer,
+        )
 
         item.userAnswer = user_answer
         item.isCorrect = is_correct
@@ -298,13 +305,23 @@ def submit_sm2_quiz(
                 word=word.text,
                 isCorrect=is_correct,
                 quality=quality,
+                sm2={
+                    "new_ease_factor": snapshot.new_ease_factor,
+                    "new_interval_days": snapshot.new_interval_days,
+                    "next_review_label": snapshot.next_review_label,
+                },
                 oldScore=snapshot.old_score,
                 newScore=snapshot.new_score,
+                scoreDelta=snapshot.score_delta,
                 oldRepeats=snapshot.old_repeats,
                 newRepeats=snapshot.new_repeats,
                 oldNextReviewDate=snapshot.old_next_review_at,
                 newNextReviewDate=snapshot.new_next_review_at,
                 status=snapshot.status,
+                errorType=snapshot.error_type,
+                learningInsight=snapshot.learning_insight,
+                smartAction=snapshot.smart_action,
+                achievementFlags=snapshot.achievement_flags,
             )
         )
 

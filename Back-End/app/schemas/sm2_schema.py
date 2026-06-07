@@ -35,13 +35,19 @@ class SM2ItemResult(BaseModel):
     word: str
     isCorrect: bool
     quality: int
+    sm2: dict
     oldScore: int
     newScore: int
+    scoreDelta: int
     oldRepeats: int
     newRepeats: int
     oldNextReviewDate: Optional[datetime] = None
     newNextReviewDate: Optional[datetime] = None
     status: str
+    errorType: str
+    learningInsight: str
+    smartAction: str
+    achievementFlags: List[str] = Field(default_factory=list)
 
 
 class SM2SubmitResponse(BaseModel):

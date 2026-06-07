@@ -25,6 +25,8 @@ class _AddWordScreenState extends State<AddWordScreen>
     with SingleTickerProviderStateMixin {
   final _wordController = TextEditingController();
   final _arabicController = TextEditingController();
+  final _listSearchController = TextEditingController();
+  final _wordsScrollController = ScrollController();
   late TabController _tabController;
   Timer? _translationDebounce;
   String? _lastAutoArabic;
@@ -37,6 +39,7 @@ class _AddWordScreenState extends State<AddWordScreen>
     // ✅ 3 تابات
     _tabController = TabController(length: 3, vsync: this);
     _wordController.addListener(_onWordChanged);
+    _wordsScrollController.addListener(_onWordsScrolled);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WordProvider>().loadWords();
     });
@@ -45,11 +48,22 @@ class _AddWordScreenState extends State<AddWordScreen>
   @override
   void dispose() {
     _translationDebounce?.cancel();
+    _wordsScrollController.removeListener(_onWordsScrolled);
     _wordController.removeListener(_onWordChanged);
     _wordController.dispose();
     _arabicController.dispose();
+    _listSearchController.dispose();
+    _wordsScrollController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onWordsScrolled() {
+    if (!_wordsScrollController.hasClients) return;
+    final position = _wordsScrollController.position;
+    if (position.pixels >= position.maxScrollExtent - 220) {
+      context.read<WordProvider>().loadMoreWords();
+    }
   }
 
   void _onWordChanged() {
@@ -146,6 +160,7 @@ class _AddWordScreenState extends State<AddWordScreen>
     if (!mounted) return;
     if (ok) {
       context.read<ProgressProvider>().refresh();
+      context.read<WordProvider>().loadWords(forceRefresh: true);
       _lastAutoArabic = null;
       _wordController.clear();
       _arabicController.clear();
@@ -349,7 +364,7 @@ class _AddWordScreenState extends State<AddWordScreen>
   Widget _buildListTab() {
     return Consumer<WordProvider>(
       builder: (context, provider, _) {
-        if (provider.isLoadingWords) {
+        if (provider.isLoadingWords && provider.words.isEmpty) {
           return Center(
             child: CircularProgressIndicator(color: AppColors.primary),
           );
@@ -401,6 +416,74 @@ class _AddWordScreenState extends State<AddWordScreen>
 
         return Column(
           children: [
+            if (provider.offlineMode)
+              Container(
+                width: double.infinity,
+                margin: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.35)),
+                ),
+                child: Text(
+                  "Offline mode active",
+                  style: TextStyle(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _listSearchController,
+                      onChanged: provider.updateWordSearchFilter,
+                      decoration: InputDecoration(
+                        hintText: "Search words",
+                        prefixIcon: Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  PopupMenuButton<String?>(
+                    tooltip: "Filter",
+                    onSelected: provider.updateStatusFilter,
+                    itemBuilder: (_) => [
+                      PopupMenuItem(value: null, child: Text("All")),
+                      PopupMenuItem(value: "new", child: Text("New")),
+                      PopupMenuItem(value: "learning", child: Text("Learning")),
+                      PopupMenuItem(value: "review", child: Text("Review")),
+                      PopupMenuItem(value: "hard", child: Text("Hard")),
+                      PopupMenuItem(value: "mastered", child: Text("Mastered")),
+                    ],
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(Icons.filter_list, color: AppColors.primary),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: "Refresh",
+                    onPressed: () => provider.loadWords(forceRefresh: true),
+                    icon: Icon(Icons.refresh, color: AppColors.primary),
+                  ),
+                ],
+              ),
+            ),
             Container(
               margin: EdgeInsets.all(16),
               padding: EdgeInsets.all(16),
@@ -415,7 +498,7 @@ class _AddWordScreenState extends State<AddWordScreen>
                 children: [
                   _StatItem(
                     label: "Total",
-                    value: "${provider.words.length}",
+                    value: "${provider.totalWords}",
                     icon: Icons.library_books,
                   ),
                   _StatItem(
@@ -434,17 +517,53 @@ class _AddWordScreenState extends State<AddWordScreen>
             ),
             Expanded(
               child: ListView.builder(
+                controller: _wordsScrollController,
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                itemCount: provider.words.length,
-                itemBuilder: (_, i) => AnimatedEntry(
-                  index: i,
-                  child: WordListItem(word: provider.words[i]),
-                ),
+                itemCount: provider.words.length + (provider.isLoadingMore ? 1 : 0),
+                itemBuilder: (_, i) {
+                  if (i >= provider.words.length) {
+                    return Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  final word = provider.words[i];
+                  return AnimatedEntry(
+                    index: i,
+                    child: WordListItem(
+                      word: word,
+                      onDelete: () => _deleteWordWithUndo(provider, word),
+                    ),
+                  );
+                },
               ),
             ),
           ],
         );
       },
+    );
+  }
+
+  Future<void> _deleteWordWithUndo(WordProvider provider, WordModel word) async {
+    final ok = await provider.deleteWord(word.wordId);
+    if (!mounted) return;
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.errorMessage ?? "Failed to delete word"),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Word deleted"),
+        action: SnackBarAction(
+          label: "UNDO",
+          onPressed: () => provider.restoreWord(word.wordId),
+        ),
+      ),
     );
   }
 }

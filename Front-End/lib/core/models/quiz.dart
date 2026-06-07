@@ -3,22 +3,41 @@ class QuizQuestion {
   final List<String> options;
   final String correctAnswer;
   final String questionType;
+  final String? correctMeaning;
+  final String? exampleSentence;
+  final String? learningTip;
 
   QuizQuestion({
     required this.question,
     required this.options,
     required this.correctAnswer,
     this.questionType = 'mcq',
+    this.correctMeaning,
+    this.exampleSentence,
+    this.learningTip,
   });
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
     return QuizQuestion(
-      question: json['question'] ?? '',
+      question: json['question'] ?? json['questionText'] ?? '',
       options: List<String>.from(json['options'] ?? []),
-      correctAnswer: json['correctAnswer'] ?? '',
-      questionType: json['questionType'] ?? 'mcq',
+      correctAnswer: json['correctAnswer'] ?? json['correct_answer'] ?? '',
+      questionType: json['questionType'] ?? json['question_type'] ?? 'mcq',
+      correctMeaning: json['correctMeaning'] ?? json['correct_meaning'],
+      exampleSentence: json['exampleSentence'] ?? json['example_sentence'],
+      learningTip: json['learningTip'] ?? json['learning_tip'],
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'question': question,
+        'options': options,
+        'correctAnswer': correctAnswer,
+        'questionType': questionType,
+        'correctMeaning': correctMeaning,
+        'exampleSentence': exampleSentence,
+        'learningTip': learningTip,
+      };
 }
 
 class QuizModel {
@@ -29,12 +48,17 @@ class QuizModel {
 
   factory QuizModel.fromJson(Map<String, dynamic> json) {
     return QuizModel(
-      quizId: json['quiz_id'], // ← من الـ backend
-      questions: (json['questions'] as List)
-          .map((q) => QuizQuestion.fromJson(q))
+      quizId: json['quiz_id'] ?? json['quizId'] ?? json['id'] ?? 0,
+      questions: (json['questions'] as List? ?? [])
+          .map((q) => QuizQuestion.fromJson(Map<String, dynamic>.from(q)))
           .toList(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'quiz_id': quizId,
+        'questions': questions.map((q) => q.toJson()).toList(),
+      };
 }
 
 class QuizHistory {
@@ -52,10 +76,63 @@ class QuizHistory {
 
   factory QuizHistory.fromJson(Map<String, dynamic> json) {
     return QuizHistory(
-      quizId: json['quizId'],
+      quizId: json['quizId'] ?? json['quiz_id'] ?? json['id'] ?? 0,
       score: json['score'] ?? 0,
-      questionsCount: json['questionsCount'] ?? 0,
-      date: json['date'] ?? '',
+      questionsCount:
+          json['questionsCount'] ?? json['total_questions'] ?? json['total'] ?? 0,
+      date: json['date'] ?? json['started_at'] ?? json['submitted_at'] ?? '',
+    );
+  }
+}
+
+class QuizQuestionBreakdown {
+  final String question;
+  final String userAnswer;
+  final String correctAnswer;
+  final bool isCorrect;
+
+  QuizQuestionBreakdown({
+    required this.question,
+    required this.userAnswer,
+    required this.correctAnswer,
+    required this.isCorrect,
+  });
+
+  factory QuizQuestionBreakdown.fromJson(Map<String, dynamic> json) {
+    return QuizQuestionBreakdown(
+      question: json['question'] ?? json['questionText'] ?? '',
+      userAnswer: json['userAnswer'] ?? json['user_answer'] ?? '',
+      correctAnswer: json['correctAnswer'] ?? json['correct_answer'] ?? '',
+      isCorrect: json['isCorrect'] ?? json['is_correct'] ?? false,
+    );
+  }
+}
+
+class QuizResultDetails {
+  final int score;
+  final int total;
+  final double percentage;
+  final String grade;
+  final List<QuizQuestionBreakdown> breakdown;
+
+  QuizResultDetails({
+    required this.score,
+    required this.total,
+    required this.percentage,
+    required this.grade,
+    required this.breakdown,
+  });
+
+  factory QuizResultDetails.fromJson(Map<String, dynamic> json) {
+    return QuizResultDetails(
+      score: json['score'] ?? 0,
+      total: json['total'] ?? json['totalQuestions'] ?? 0,
+      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      grade: json['grade'] ?? 'Needs Work',
+      breakdown: (json['breakdown'] as List? ?? [])
+          .map((item) =>
+              QuizQuestionBreakdown.fromJson(Map<String, dynamic>.from(item)))
+          .toList(),
     );
   }
 }

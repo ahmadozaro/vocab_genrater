@@ -18,6 +18,7 @@ class User(Base):
     email = Column(String, nullable=False, unique=True)
     password = Column("password_hash", String)
     reset_code = Column(String, nullable=True)
+    reset_code_expires_at = Column(DateTime, nullable=True)
     email_verification_code = Column(String, nullable=True)
     email_verification_expires_at = Column(DateTime, nullable=True)
     email_verification_last_sent_at = Column(DateTime, nullable=True)
@@ -39,3 +40,4 @@ class User(Base):
     progress = relationship("Progress", back_populates="owner", cascade="all, delete-orphan")
 
     notifications = relationship("Notification", back_populates="owner", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="owner", cascade="all, delete-orphan")

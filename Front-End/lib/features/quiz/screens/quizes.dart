@@ -7,6 +7,7 @@ import 'package:ai/features/quiz/screens/sm2_review_quiz.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/animations/app_motion.dart';
+import 'package:ai/core/models/quiz.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
 
@@ -18,12 +19,23 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
+  final TextEditingController _fillController = TextEditingController();
+  int _lastQuestionIndex = -1;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<QuizProvider>().loadHistory();
+      final quiz = context.read<QuizProvider>();
+      quiz.loadHistory();
+      quiz.restoreSavedSession();
     });
+  }
+
+  @override
+  void dispose() {
+    _fillController.dispose();
+    super.dispose();
   }
 
   @override
@@ -222,6 +234,16 @@ class _QuizScreenState extends State<QuizScreen> {
       );
     }
 
+    if (_lastQuestionIndex != quiz.currentIndex) {
+      _lastQuestionIndex = quiz.currentIndex;
+      final selected = quiz.selectedAnswer;
+      if (question.questionType == 'fill' && selected != null && selected.isNotEmpty) {
+        _fillController.text = selected;
+      } else {
+        _fillController.clear();
+      }
+    }
+
     return Column(
       children: [
         // شريط التقدم
@@ -248,6 +270,8 @@ class _QuizScreenState extends State<QuizScreen> {
                   ),
                 ),
                 SizedBox(height: 8),
+                _buildTimerBar(quiz),
+                SizedBox(height: 16),
                 AnimatedEntry(
                   child: QuizQuestionCard(
                     question: question.question,
@@ -273,27 +297,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   ),
                 SizedBox(height: 20),
                 if (quiz.isAnswered)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: quiz.nextQuestion,
-                      child: Text(
-                        quiz.isLastQuestion ? "See Results" : "Next Question",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
+                  _buildAnswerFeedback(quiz, question),
               ],
             ),
           ),
@@ -304,13 +308,12 @@ class _QuizScreenState extends State<QuizScreen> {
 
   // ─── إدخال نص لـ fill ─────────────────────────────────────────
   Widget _buildFillInBlank(QuizProvider quiz) {
-    final controller = TextEditingController();
     return Column(
       children: [
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 20),
           child: TextField(
-            controller: controller,
+            controller: _fillController,
             enabled: !quiz.isAnswered,
             textDirection: TextDirection.ltr,
             textAlign: TextAlign.left,
@@ -330,6 +333,7 @@ class _QuizScreenState extends State<QuizScreen> {
             onSubmitted: (val) {
               if (!quiz.isAnswered && val.trim().isNotEmpty) {
                 quiz.selectAnswer(val.trim());
+                _fillController.clear();
               }
             },
           ),
@@ -347,8 +351,9 @@ class _QuizScreenState extends State<QuizScreen> {
                 ),
               ),
               onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  quiz.selectAnswer(controller.text.trim());
+                if (_fillController.text.trim().isNotEmpty) {
+                  quiz.selectAnswer(_fillController.text.trim());
+                  _fillController.clear();
                 }
               },
               child: Text(
@@ -365,12 +370,141 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
+  Widget _buildTimerBar(QuizProvider quiz) {
+    final color = _timerColor(quiz.remainingSeconds);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "Time",
+              style: TextStyle(
+                color: AppColors.textLight,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              "${quiz.remainingSeconds}s",
+              style: TextStyle(color: color, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        SizedBox(height: 8),
+        LinearProgressIndicator(
+          value: quiz.timerProgress,
+          minHeight: 8,
+          borderRadius: BorderRadius.circular(8),
+          backgroundColor: AppColors.border,
+          color: color,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnswerFeedback(QuizProvider quiz, QuizQuestion question) {
+    final isCorrect = quiz.isCorrectAnswer(quiz.selectedAnswer);
+    final color = isCorrect ? AppColors.success : AppColors.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withOpacity(0.35)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isCorrect ? Icons.check_circle : Icons.cancel,
+                color: color,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isCorrect
+                      ? "Correct"
+                      : "Correct answer: ${question.correctAnswer}",
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 12),
+        _buildExplanationPanel(question),
+        SizedBox(height: 8),
+        Center(
+          child: Text(
+            quiz.isLastQuestion ? "Preparing results..." : "Next question coming up...",
+            style: TextStyle(color: AppColors.textLight),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExplanationPanel(QuizQuestion question) {
+    final meaning = question.correctMeaning;
+    final example = question.exampleSentence;
+    final tip = question.learningTip;
+    final hasDetails = [meaning, example, tip].any((value) => value != null && value.trim().isNotEmpty);
+    if (!hasDetails) return SizedBox.shrink();
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Explanation",
+            style: TextStyle(
+              color: AppColors.textDark,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (meaning != null && meaning.trim().isNotEmpty) ...[
+            SizedBox(height: 8),
+            Text("Meaning: $meaning", style: TextStyle(color: AppColors.textDark)),
+          ],
+          if (example != null && example.trim().isNotEmpty) ...[
+            SizedBox(height: 6),
+            Text("Example: $example", style: TextStyle(color: AppColors.textLight)),
+          ],
+          if (tip != null && tip.trim().isNotEmpty) ...[
+            SizedBox(height: 6),
+            Text("Tip: $tip", style: TextStyle(color: AppColors.primaryDark)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _timerColor(int seconds) {
+    if (seconds <= 8) return AppColors.error;
+    if (seconds <= 15) return AppColors.warning;
+    return AppColors.success;
+  }
+
   // ─── شاشة النتيجة ──────────────────────────────────────────────
   Widget _buildFinishedScreen(QuizProvider quiz) {
     return Center(
       child: QuizResultDialog(
         score: quiz.score,
         total: quiz.currentQuiz?.questions.length ?? 0,
+        details: quiz.resultDetails,
         onRetry: () => quiz.startQuiz(),
         onHome: () => quiz.reset(),
       ),

@@ -2,6 +2,7 @@ from datetime import datetime, time
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -363,15 +364,51 @@ def create_word(
     return _word_response(db_word)
 
 
-@router.get("/words", response_model=list[WordResponse])
+@router.get("/words")
 def get_words(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: str | None = Query(None),
+    status: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     _try_activate_pending_words(db, current_user.id)
     db.commit()
-    words = db.query(Word).filter(Word.user_id == current_user.id, Word.is_active == 1).order_by(Word.id.desc()).all()
-    return [_word_response(word) for word in words]
+    query = (
+        db.query(Word)
+        .join(DictionaryWord)
+        .filter(Word.user_id == current_user.id, Word.is_active == 1)
+    )
+    if status:
+        query = query.filter(Word.status == status)
+    if search:
+        normalized_search = f"%{_normalize_word(search)}%"
+        query = query.filter(
+            or_(
+                DictionaryWord.normalized_text.ilike(normalized_search),
+                DictionaryWord.text.ilike(f"%{search.strip()}%"),
+            )
+        )
+
+    total = query.count()
+    pages = max(1, (total + limit - 1) // limit)
+    words = (
+        query.order_by(Word.id.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+    word_payload = [_word_response(word) for word in words]
+
+    if page == 1 and not search and not status:
+        return word_payload
+    return {
+        "words": word_payload,
+        "total": total,
+        "page": page,
+        "pages": pages,
+    }
 
 
 @router.get("/words/{word_id}", response_model=WordResponse)
@@ -414,6 +451,26 @@ def delete_word(
     word.is_active = 0
     db.commit()
     return {"message": "Word removed from your words"}
+
+
+@router.post("/words/{word_id}/restore", response_model=WordResponse)
+def restore_word(
+    word_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    word = db.query(Word).filter(Word.id == word_id, Word.user_id == current_user.id).first()
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+    word.is_active = 1
+    if word.status == "pending":
+        word.activation_date = None
+        word.next_review_at = None
+    elif not word.next_review_at:
+        word.next_review_at = datetime.utcnow()
+    db.commit()
+    db.refresh(word)
+    return _word_response(word)
 
 
 @router.post("/words/{word_id}/sentences", response_model=SentenceResponse)

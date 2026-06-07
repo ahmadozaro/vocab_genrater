@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.question_schema import QuestionResponse
 
@@ -34,6 +34,9 @@ class QuizSubmitResponse(BaseModel):
     quizId: int
     score: int
     total: int
+    percentage: float = 0
+    grade: str = "Needs Work"
+    breakdown: List[dict] = Field(default_factory=list)
 
 
 class QuizWithQuestionsResponse(BaseModel):
@@ -46,6 +49,9 @@ class QuizStartQuestion(BaseModel):
     options: List[str]
     correctAnswer: str
     questionType: Optional[str] = "mcq"
+    correctMeaning: Optional[str] = None
+    exampleSentence: Optional[str] = None
+    learningTip: Optional[str] = None
 
 
 class QuizStartResponse(BaseModel):

@@ -72,4 +72,25 @@ class WordModel {
       examples: List<String>.from(json['examples'] ?? []),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'wordId': wordId,
+        'text': text,
+        'arabicMeaning': arabicMeaning,
+        'audio': audio,
+        'source': source,
+        'definition': definition,
+        'translationAr': translationAr,
+        'status': status,
+        'sm2Repeats': sm2Repeats,
+        'sm2EaseFactor': sm2EaseFactor,
+        'sm2IntervalDays': sm2IntervalDays,
+        'nextReviewDate': nextReviewDate,
+        'lastReviewedAt': lastReviewedAt,
+        'correctStreak': correctStreak,
+        'wrongStreak': wrongStreak,
+        'score': score,
+        'addedAt': addedAt,
+        'examples': examples,
+      };
 }

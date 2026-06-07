@@ -57,12 +57,36 @@ def _get_user_quiz(db: Session, quiz_id: int, user_id: int) -> Quiz:
     return quiz
 
 
-def _format_start_question(question_text: str, options: list[str], correct: str, qtype: str = "mcq") -> dict:
+def _word_explanation(word: Word | None) -> dict:
+    if not word:
+        return {
+            "correctMeaning": None,
+            "exampleSentence": None,
+            "learningTip": "Review this answer in context before the next quiz.",
+        }
+    example = word.sentences[0].sentence_en if word.sentences else None
+    meaning = word.arabicMeaning or word.definition
+    return {
+        "correctMeaning": meaning,
+        "exampleSentence": example,
+        "learningTip": f"Link '{word.text}' with a short sentence you can say aloud.",
+    }
+
+
+def _format_start_question(
+    question_text: str,
+    options: list[str],
+    correct: str,
+    qtype: str = "mcq",
+    word: Word | None = None,
+) -> dict:
+    explanation = _word_explanation(word)
     return {
         "question": question_text,
         "options": options,
         "correctAnswer": correct,
         "questionType": qtype,
+        **explanation,
     }
 
 
@@ -131,6 +155,34 @@ def _normalize_answer(s: str | None) -> str:
     return " ".join(s.strip().lower().split())
 
 
+def _build_local_question_rows(words: list[Word], selected: list[Word]) -> list[tuple[Word, str, list[str], str, str]]:
+    all_texts = [w.text for w in words if w.text]
+    question_rows: list[tuple[Word, str, list[str], str, str]] = []
+    for i, w in enumerate(selected):
+        r = i % len(QUESTION_TYPES)
+        if r == 1:
+            q_text, opts, correct = _generate_fill_in_blank(words, w)
+            qtype = "fill"
+        elif r == 2:
+            q_text, opts, correct = _generate_true_false(words, w, all_texts)
+            qtype = "tf"
+        else:
+            q_text, opts, correct = _generate_mcq(words, w, all_texts)
+            qtype = "mcq"
+        question_rows.append((w, q_text, opts, correct, qtype))
+    return question_rows
+
+
+def _grade_for(percentage: float) -> str:
+    if percentage >= 90:
+        return "Excellent"
+    if percentage >= 70:
+        return "Good"
+    if percentage >= 50:
+        return "Average"
+    return "Needs Work"
+
+
 # ─── CREATE QUIZ (recent words, mixed types) ─────────────────────
 
 
@@ -153,24 +205,11 @@ def create_quiz(
 
     max_questions = min(len(words), data.questionsCount or min(10, len(words)))
     selected = words[:max_questions]
-    all_texts = [w.text for w in words if w.text]
-
-    questions_out: list[dict] = []
-    question_rows: list[tuple[Word, str, list[str], str, str]] = []
-
-    for i, w in enumerate(selected):
-        r = i % len(QUESTION_TYPES)
-        if r == 1:
-            q_text, opts, correct = _generate_fill_in_blank(words, w)
-            qtype = "fill"
-        elif r == 2:
-            q_text, opts, correct = _generate_true_false(words, w, all_texts)
-            qtype = "tf"
-        else:
-            q_text, opts, correct = _generate_mcq(words, w, all_texts)
-            qtype = "mcq"
-        question_rows.append((w, q_text, opts, correct, qtype))
-        questions_out.append(_format_start_question(q_text, opts, correct, qtype))
+    question_rows = _build_local_question_rows(words, selected)
+    questions_out = [
+        _format_start_question(q_text, opts, correct, qtype, word=w)
+        for w, q_text, opts, correct, qtype in question_rows
+    ]
 
     if not question_rows:
         raise HTTPException(status_code=500, detail="Quiz generation failed: no questions were created")
@@ -248,10 +287,15 @@ def create_ai_review_quiz(
             logger.warning("AI quiz generation failed; using fallback: %.200s", str(exc))
 
     if not ai_questions:
-        ai_questions = VocabGenAI._fallback_quiz_questions(word_dicts, min(10, len(word_dicts)))
+        try:
+            ai_questions = VocabGenAI._fallback_quiz_questions(word_dicts, min(10, len(word_dicts)))
+        except Exception as exc:
+            logger.warning("AI fallback quiz generation failed; using local generator: %.200s", str(exc))
+            ai_questions = []
 
     questions_out: list[dict] = []
     valid_questions: list[dict] = []
+    words_by_id = {w.id: w for w in selected_words}
     for q in ai_questions:
         question_text = q.get("questionText", "")
         options = q.get("options", [])
@@ -270,16 +314,42 @@ def create_ai_review_quiz(
         qtype_map = {"multiple_choice": "mcq", "fill_in_blank": "fill", "true_false": "tf"}
         qtype = qtype_map.get(qtype, qtype)
         clean_options = [str(o) for o in options]
+        try:
+            source_word_id = int(q.get("wordId")) if q.get("wordId") is not None else None
+        except (TypeError, ValueError):
+            source_word_id = None
+        source_word = words_by_id.get(source_word_id)
         valid_questions.append({
             "questionText": str(question_text),
             "options": clean_options,
             "correctAnswer": str(correct),
             "questionType": qtype,
+            "word": source_word,
         })
-        questions_out.append(_format_start_question(str(question_text), clean_options, str(correct), qtype))
 
     if not valid_questions:
-        raise HTTPException(status_code=500, detail="Quiz generation failed: no valid questions")
+        question_rows = _build_local_question_rows(words, selected_words)
+        valid_questions = [
+            {
+                "questionText": q_text,
+                "options": opts,
+                "correctAnswer": correct,
+                "questionType": qtype,
+                "word": w,
+            }
+            for w, q_text, opts, correct, qtype in question_rows
+        ]
+
+    questions_out = [
+        _format_start_question(
+            q["questionText"],
+            q["options"],
+            q["correctAnswer"],
+            q["questionType"],
+            word=q.get("word"),
+        )
+        for q in valid_questions
+    ]
 
     quiz = Quiz(
         quizType="ai_review",
@@ -296,6 +366,7 @@ def create_ai_review_quiz(
             correctAnswer=q["correctAnswer"],
             options=json.dumps(q["options"], ensure_ascii=False),
             quizId=quiz.quizId,
+            userWordId=q["word"].id if q.get("word") else None,
             questionType=q["questionType"],
         )
         db.add(question)
@@ -327,18 +398,31 @@ def submit_quiz(
     )
 
     score = 0
+    breakdown: list[dict] = []
     for index, question in enumerate(questions):
+        user_answer = data.answers[index] if index < len(data.answers) else ""
         if index < len(data.answers):
-            question.userAnswer = data.answers[index]
+            question.userAnswer = user_answer
             qtype = question.questionType or "mcq"
             if qtype == "fill":
-                user_ans = _normalize_answer(data.answers[index])
+                user_ans = _normalize_answer(user_answer)
                 correct_ans = _normalize_answer(question.correctAnswer)
                 question.isCorrect = user_ans == correct_ans
             else:
-                question.isCorrect = data.answers[index] == question.correctAnswer
+                question.isCorrect = user_answer == question.correctAnswer
+        else:
+            question.userAnswer = ""
+            question.isCorrect = False
         if question.isCorrect:
             score += 1
+        breakdown.append(
+            {
+                "questionText": question.questionText,
+                "userAnswer": question.userAnswer or "",
+                "correctAnswer": question.correctAnswer or "",
+                "isCorrect": bool(question.isCorrect),
+            }
+        )
 
     quiz.score = score
     quiz.questionsCount = len(questions)
@@ -346,4 +430,13 @@ def submit_quiz(
     quiz.submittedAt = datetime.utcnow()
     db.commit()
 
-    return QuizSubmitResponse(quizId=quiz.quizId, score=score, total=len(questions))
+    total = len(questions)
+    percentage = round((score / total) * 100, 2) if total else 0
+    return QuizSubmitResponse(
+        quizId=quiz.quizId,
+        score=score,
+        total=total,
+        percentage=percentage,
+        grade=_grade_for(percentage),
+        breakdown=breakdown,
+    )

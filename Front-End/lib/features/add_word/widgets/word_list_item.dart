@@ -6,8 +6,9 @@ import 'package:ai/features/words/screens/word_details_screen.dart';
 
 class WordListItem extends StatelessWidget {
   final WordModel word;
+  final VoidCallback? onDelete;
 
-  const WordListItem({super.key, required this.word});
+  const WordListItem({super.key, required this.word, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +82,14 @@ class WordListItem extends StatelessWidget {
                 ),
               ],
             ),
+            if (onDelete != null) ...[
+              SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Delete',
+                icon: Icon(Icons.delete_outline, color: AppColors.error),
+                onPressed: onDelete,
+              ),
+            ],
           ],
         ),
       ),

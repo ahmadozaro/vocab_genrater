@@ -423,7 +423,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await ApiService.clearToken();
+    await ApiService.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     _isLoggedIn = false;
