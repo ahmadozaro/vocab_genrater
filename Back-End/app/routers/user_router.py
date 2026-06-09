@@ -32,6 +32,7 @@ from app.schemas.user_schema import (
     UserUpdateInterests,
     UserUpdatePassword,
     UserUpdateProfile,
+    DeleteAccountRequest,
     VerifyEmailRequest,
 )
 from app.utils.security import (
@@ -490,6 +491,22 @@ def update_password(
     user.password = hash_password(data.new_password)
     db.commit()
     return {"message": "Password updated successfully"}
+
+
+@router.delete("/users/me")
+def delete_my_account(
+    data: DeleteAccountRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = _get_user_in_db(current_user, db)
+    if not verify_password(data.password, user.password):
+        raise HTTPException(status_code=401, detail="Invalid current password")
+
+    db.query(RefreshToken).filter(RefreshToken.user_id == user.id).delete(synchronize_session=False)
+    db.delete(user)
+    db.commit()
+    return {"message": "Account deleted successfully"}
 
 
 @router.patch("/users/me", response_model=UserResponse, response_model_exclude_none=True)

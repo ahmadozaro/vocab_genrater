@@ -229,38 +229,58 @@ No duplicates. No excluded words. Cover diverse contexts."""
  
     def generate_quiz_questions(self, words: list[dict], count: int = 5) -> list[dict]:
         words_str = "; ".join(
-            f"{w.get('text', '?')} ({w.get('arabicMeaning', '?')})" for w in words
+            f"{w.get('text', '?')} ({w.get('definition') or w.get('exampleSentence') or 'no definition'})"
+            for w in words
         )
-        prompt = f"""Create {count} quiz questions for these vocabulary words (mix of types):
+        prompt = f"""Create {count} quiz questions for these vocabulary words in English.
 {words_str}
  
 Return ONLY a JSON array of exactly {count} objects with these fields:
 - "questionText": the question text
-- "options": array of choices (empty list for fill-in-blank)
+- "options": array of choices
 - "correctAnswer": the correct answer
-- "questionType": one of "mcq", "fill", "tf"
+- "questionType": one of "mcq", "tf"
  
 Type rules:
 - "mcq": 4 options, correctAnswer is one of them
-- "fill": options=[], correctAnswer is the exact word
 - "tf": options=["True","False"], correctAnswer is "True" or "False"
  
-Mix fill-in-the-blank, true/false, and multiple-choice questions. Keep language simple."""
+Question rules:
+- Use only English in question text and all answer options.
+- Do not use any Arabic words or translations.
+- Do not create fill-in-the-blank or typed-answer questions.
+- Use varied English questions: definitions, sentence usage, word meaning, and correct usage.
+- Mix multiple-choice and true/false questions.
+"""
         result = self._call_groq(prompt)
         if isinstance(result, list) and len(result) > 0:
             valid: list[dict] = []
-            qtype_map = {"multiple_choice": "mcq", "fill_in_blank": "fill", "true_false": "tf"}
+            qtype_map = {"multiple_choice": "mcq", "true_false": "tf"}
             for q in result:
-                if (
+                question_type = q.get("questionType", "mcq")
+                qtype = qtype_map.get(question_type, question_type)
+                if qtype == "mcq" and (
                     q.get("questionText")
                     and isinstance(q.get("options"), list)
                     and len(q["options"]) == 4
                     and q.get("correctAnswer") in q["options"]
                 ):
-                    qtype = qtype_map.get(q.get("questionType", "mcq"), q.get("questionType", "mcq"))
                     valid.append({
                         "questionText": q["questionText"],
                         "options": [str(o) for o in q["options"]],
+                        "correctAnswer": str(q["correctAnswer"]),
+                        "wordId": None,
+                        "questionType": qtype,
+                    })
+                elif qtype == "tf" and (
+                    q.get("questionText")
+                    and isinstance(q.get("options"), list)
+                    and set(q["options"]) == {"True", "False"}
+                    and str(q.get("correctAnswer")) in {"True", "False"}
+                ):
+                    valid.append({
+                        "questionText": q["questionText"],
+                        "options": ["True", "False"],
                         "correctAnswer": str(q["correctAnswer"]),
                         "wordId": None,
                         "questionType": qtype,
@@ -276,60 +296,55 @@ Mix fill-in-the-blank, true/false, and multiple-choice questions. Keep language 
         all_texts = [x.get("text", "") for x in words if x.get("text", "")]
         for i, w in enumerate(selected):
             text = w.get("text", "")
-            meaning = w.get("arabicMeaning", "")
+            definition = (w.get("definition") or "").strip()
+            example = (w.get("exampleSentence") or "").strip()
             others = [t for t in all_texts if t.lower() != text.lower()]
-            r = i % 3
+            r = i % 2
             if r == 0:
-                qtext = (
-                    f'Fill in the blank: "The English word for "{meaning}" is ____."'
-                    if meaning
-                    else f'Fill in the blank: "The word ____ means {text}."'
-                )
-                questions.append({
-                    "questionText": qtext,
-                    "options": [],
-                    "correctAnswer": text,
-                    "wordId": w.get("wordId"),
-                    "questionType": "fill",
-                })
-            elif r == 1:
-                is_true = bool(i % 2 == 0)
-                if is_true:
-                    statement = (
-                        f'Is the word "{text}" correctly defined as "{meaning}"?'
-                        if meaning
-                        else f'Does "{text}" mean "{text}"?'
-                    )
-                else:
-                    other = random.choice(others) if others else "another"
-                    statement = (
-                        f'Is the word "{other}" correctly defined as "{meaning}"?'
-                        if meaning
-                        else f'Does "{other}" mean "{text}"?'
-                    )
-                questions.append({
-                    "questionText": statement,
-                    "options": ["True", "False"],
-                    "correctAnswer": "True" if is_true else "False",
-                    "wordId": w.get("wordId"),
-                    "questionType": "tf",
-                })
-            else:
                 distractors = random.sample(others, min(3, len(others))) if len(others) >= 3 else (others * 3)[:3]
                 while len(distractors) < 3:
-                    distractors.append(f"word{len(distractors)}")
+                    distractors.append(f"option{len(distractors)}")
                 options = distractors + [text]
                 random.shuffle(options)
-                qtext = (
-                    f"What is the English word for: {meaning}?"
-                    if meaning
-                    else f"What word means: {text}?"
-                )
+                if example:
+                    masked = example.replace(text, "_____") if text in example else example
+                    qtext = f'Which English word best completes this sentence: "{masked}"?'
+                elif definition:
+                    qtext = f'Which English word matches this definition: "{definition}"?'
+                else:
+                    qtext = f'Which English word is described here?'
                 questions.append({
                     "questionText": qtext,
                     "options": options,
                     "correctAnswer": text,
                     "wordId": w.get("wordId"),
                     "questionType": "mcq",
+                })
+            else:
+                is_true = bool(i % 2 == 0)
+                if definition:
+                    if is_true:
+                        statement = f'Is it true that "{text}" means "{definition}"?'
+                    else:
+                        other = random.choice(others) if others else "another word"
+                        statement = f'Is it true that "{other}" means "{definition}"?'
+                elif example:
+                    if is_true:
+                        statement = f'Does the sentence "{example}" correctly use the word "{text}"?'
+                    else:
+                        other = random.choice(others) if others else "another word"
+                        statement = f'Does the sentence "{example}" correctly use the word "{other}"?'
+                else:
+                    if is_true:
+                        statement = f'Is it true that "{text}" is the right English word here?'
+                    else:
+                        other = random.choice(others) if others else "another word"
+                        statement = f'Is it true that "{other}" is the right English word here?'
+                questions.append({
+                    "questionText": statement,
+                    "options": ["True", "False"],
+                    "correctAnswer": "True" if is_true else "False",
+                    "wordId": w.get("wordId"),
+                    "questionType": "tf",
                 })
         return questions

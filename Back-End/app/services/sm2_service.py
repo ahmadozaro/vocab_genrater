@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from math import ceil
 
 
@@ -162,7 +162,7 @@ def apply_modified_sm2(
     - Repeated wrong answers can reset repeats and mark the word as hard.
     - Mastered words are not removed; they are scheduled farther away.
     """
-    reviewed_at = reviewed_at or datetime.now(timezone.utc).replace(tzinfo=None)
+    reviewed_at = reviewed_at or datetime.utcnow()
     quality = max(0, min(5, int(quality)))
 
     old_score = int(word.score or 0)

@@ -189,7 +189,13 @@ def create_ai_review_quiz(
  
     selected_words = _select_quiz_words(words, limit=10)
     word_dicts = [
-        {"text": w.text, "arabicMeaning": w.arabicMeaning or "", "wordId": w.id}
+        {
+            "text": w.text,
+            "arabicMeaning": w.arabicMeaning or "",
+            "definition": w.definition or "",
+            "exampleSentence": w.sentences[0].sentence_en if w.sentences else "",
+            "wordId": w.id,
+        }
         for w in selected_words if w.text
     ]
  
@@ -210,7 +216,7 @@ def create_ai_review_quiz(
  
     valid_questions: list[dict] = []
     words_by_id = {w.id: w for w in selected_words}
-    qtype_map = {"multiple_choice": "mcq", "fill_in_blank": "fill", "true_false": "tf"}
+    qtype_map = {"multiple_choice": "mcq", "true_false": "tf"}
  
     for q in ai_questions:
         question_text = q.get("questionText", "")
@@ -220,11 +226,11 @@ def create_ai_review_quiz(
  
         if not question_text:
             continue
-        if qtype == "mcq" and (not isinstance(options, list) or len(options) < 2 or correct not in options):
-            continue
-        if qtype == "fill" and not correct:
+        if qtype == "mcq" and (not isinstance(options, list) or len(options) != 4 or correct not in options):
             continue
         if qtype == "tf" and set(options) != {"True", "False"}:
+            continue
+        if qtype not in {"mcq", "tf"}:
             continue
  
         try:

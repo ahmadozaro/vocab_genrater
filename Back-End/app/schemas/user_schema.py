@@ -43,6 +43,10 @@ class UserUpdatePassword(BaseModel):
     new_password: str
 
 
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
 # ================= AUTH SCHEMAS =================
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

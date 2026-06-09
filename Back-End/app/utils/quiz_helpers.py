@@ -56,11 +56,27 @@ def grade_for(percentage: float) -> str:
 # Question generators (was duplicated in quiz_router & sm2_quiz_router)
 # ---------------------------------------------------------------------------
  
+def _word_prompt_text(word: "Word") -> str:
+    definition = (word.definition or "").strip()
+    sentence = ""
+    if word.sentences:
+        sentence = word.sentences[0].sentence_en.strip() if word.sentences[0].sentence_en else ""
+
+    if sentence and word.text in sentence:
+        masked = sentence.replace(word.text, "_____")
+        return f'Which English word best completes this sentence: "{masked}"?'
+    if sentence:
+        return f'Which English word best fits this sentence: "{sentence}"?'
+    if definition:
+        return f'Which English word matches this definition: "{definition}"?'
+    return f'Which English word is described here?'
+
+
 def generate_mcq(
     word: "Word",
     all_words: list["Word"],
 ) -> tuple[str, list[str], str]:
-    """Multiple-choice: pick the English word for a given Arabic meaning."""
+    """Multiple-choice: choose the correct English word from four options."""
     correct = word.text
     all_texts = [w.text for w in all_words if w.text and w.text != correct]
     distractors = random.sample(all_texts, min(3, len(all_texts)))
@@ -68,42 +84,42 @@ def generate_mcq(
         distractors.append(f"option{len(distractors)}")
     options = distractors + [correct]
     random.shuffle(options)
-    meaning = word.arabicMeaning or word.translationAr
-    question_text = (
-        f"What is the English word for: {meaning}?"
-        if meaning
-        else f"What word means: {correct}?"
-    )
+    question_text = _word_prompt_text(word)
     return question_text, options, correct
- 
- 
-def generate_fill_in_blank(word: "Word") -> tuple[str, list[str], str]:
-    """Fill-in-the-blank: type the English word for an Arabic meaning."""
-    correct = word.text
-    meaning = word.arabicMeaning or word.translationAr
-    if meaning:
-        question_text = (
-            f'Fill in the blank: "The English word for "{meaning}" is ____."'
-        )
-    else:
-        question_text = f'Fill in the blank: "The word ____ means {correct}."'
-    return question_text, [], correct
  
  
 def generate_true_false(
     word: "Word",
     all_texts: list[str],
 ) -> tuple[str, list[str], str]:
-    """True/False: is this the correct English word for the given meaning?"""
+    """True/False: decide whether this English word matches a definition or sentence."""
     correct = word.text
-    meaning = word.arabicMeaning or word.translationAr or "this word"
+    definition = (word.definition or "").strip()
+    sentence = ""
+    if word.sentences:
+        sentence = word.sentences[0].sentence_en.strip() if word.sentences[0].sentence_en else ""
     is_true = random.choice([True, False])
-    if is_true:
-        statement = f'Is the word "{correct}" correctly defined as "{meaning}"?'
+    if definition:
+        if is_true:
+            statement = f'Is it true that "{correct}" means "{definition}"?'
+        else:
+            others = [t for t in all_texts if t != correct]
+            other = random.choice(others) if others else "another word"
+            statement = f'Is it true that "{other}" means "{definition}"?'
+    elif sentence:
+        if is_true:
+            statement = f'Does the sentence "{sentence}" correctly use the word "{correct}"?'
+        else:
+            others = [t for t in all_texts if t != correct]
+            other = random.choice(others) if others else "another word"
+            statement = f'Does the sentence "{sentence}" correctly use the word "{other}"?'
     else:
-        others = [t for t in all_texts if t != correct]
-        other = random.choice(others) if others else "another word"
-        statement = f'Is the word "{other}" correctly defined as "{meaning}"?'
+        if is_true:
+            statement = f'Is it true that "{correct}" is the right English word for this idea?'
+        else:
+            others = [t for t in all_texts if t != correct]
+            other = random.choice(others) if others else "another word"
+            statement = f'Is it true that "{other}" is the right English word for this idea?'
     return statement, ["True", "False"], "True" if is_true else "False"
  
  
@@ -111,7 +127,7 @@ def generate_true_false(
 # Batch builder used by quiz_router
 # ---------------------------------------------------------------------------
  
-QUESTION_TYPES = ["mcq", "fill", "tf"]
+QUESTION_TYPES = ["mcq", "tf"]
  
  
 def build_question_rows(
@@ -120,16 +136,13 @@ def build_question_rows(
 ) -> list[tuple["Word", str, list[str], str, str]]:
     """
     Return a list of (word, question_text, options, correct_answer, qtype)
-    using a round-robin of MCQ → fill → T/F.
+    alternating MCQ and True/False.
     """
     all_texts = [w.text for w in all_words if w.text]
     rows: list[tuple["Word", str, list[str], str, str]] = []
     for i, word in enumerate(selected):
         r = i % len(QUESTION_TYPES)
         if r == 1:
-            q_text, opts, correct = generate_fill_in_blank(word)
-            qtype = "fill"
-        elif r == 2:
             q_text, opts, correct = generate_true_false(word, all_texts)
             qtype = "tf"
         else:

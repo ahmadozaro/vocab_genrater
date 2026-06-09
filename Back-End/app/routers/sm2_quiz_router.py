@@ -1,7 +1,7 @@
 
 import json
 import random
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
  
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -25,7 +25,6 @@ from app.utils.quiz_helpers import (
     normalize_answer,
     get_or_create_progress,
     generate_mcq,
-    generate_fill_in_blank,
     generate_true_false,
     QUESTION_TYPES,
 )
@@ -36,8 +35,6 @@ MIN_SM2_QUESTIONS = 5
 MAX_SM2_QUESTIONS = 15
  
  
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
  
  
 # ---------------------------------------------------------------------------
@@ -45,7 +42,7 @@ def _utcnow() -> datetime:
 # ---------------------------------------------------------------------------
  
 def _is_due(word: Word, now: datetime | None = None) -> bool:
-    now = now or _utcnow()
+    now = now or datetime.utcnow()
     return (
         bool(word.is_active)
         and word.status != "pending"
@@ -54,14 +51,14 @@ def _is_due(word: Word, now: datetime | None = None) -> bool:
  
  
 def _overdue_days(word: Word, now: datetime | None = None) -> int:
-    now = now or _utcnow()
+    now = now or datetime.utcnow()
     if not word.next_review_at or word.next_review_at > now:
         return 0
     return max(0, (now.date() - word.next_review_at.date()).days)
  
  
 def _select_sm2_words(words: list[Word], limit: int = MAX_SM2_QUESTIONS) -> list[Word]:
-    now = _utcnow()
+    now = datetime.utcnow()
     active_words = [w for w in words if w.is_active == 1 and w.status != "pending"]
     selected: list[Word] = []
     seen: set[int] = set()
@@ -138,7 +135,7 @@ def get_sm2_due_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    now = _utcnow()
+    now = datetime.utcnow()
     words = (
         db.query(Word)
         .filter(Word.user_id == current_user.id, Word.is_active == 1)
@@ -206,9 +203,6 @@ def start_sm2_quiz(
     for i, word in enumerate(selected_words):
         r = i % len(QUESTION_TYPES)
         if r == 1:
-            question_text, opts, correct = generate_fill_in_blank(word)
-            qtype = "fill"
-        elif r == 2:
             question_text, opts, correct = generate_true_false(word, all_texts)
             qtype = "tf"
         else:
@@ -275,7 +269,7 @@ def submit_sm2_quiz(
     score = 0
     results: list[SM2ItemResult] = []
     has_real_answer = False
-    now = _utcnow()
+    now = datetime.utcnow()
  
     for item in items:
         answer = answer_map.get(item.id)
