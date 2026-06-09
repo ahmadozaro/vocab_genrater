@@ -1,13 +1,14 @@
+
 import json
 import logging
 import random
-
+ 
 import httpx
-
+ 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
+ 
 logger = logging.getLogger(__name__)
-
+ 
 _FALLBACK_WORDS = [
     {"text": "improve", "arabicMeaning": "يحسن", "definition": "To make something better", "difficulty": "easy", "example": "I want to improve my English.", "level": "A2"},
     {"text": "focus", "arabicMeaning": "يركز", "definition": "To give full attention to something", "difficulty": "easy", "example": "Please focus on your work.", "level": "A2"},
@@ -34,8 +35,8 @@ _FALLBACK_WORDS = [
     {"text": "demonstrate", "arabicMeaning": "يظهر", "definition": "To show how something works", "difficulty": "hard", "example": "The teacher will demonstrate the experiment.", "level": "B2"},
     {"text": "emphasize", "arabicMeaning": "يؤكد", "definition": "To give special importance to something", "difficulty": "hard", "example": "The report emphasizes the need for safety.", "level": "B2"},
 ]
-
-
+ 
+ 
 def _strip_markdown_fences(raw: str) -> str:
     raw = raw.strip()
     if raw.startswith("```"):
@@ -46,10 +47,10 @@ def _strip_markdown_fences(raw: str) -> str:
             lines = lines[:-1]
         raw = "\n".join(lines).strip()
     return raw
-
-
+ 
+ 
 class VocabGenAI:
-
+ 
     SYSTEM_PROMPT = (
         "You are an expert English Language Professor and AI Tutor. "
         "Your goal is to help students learn vocabulary effectively. "
@@ -60,12 +61,39 @@ class VocabGenAI:
         "4. Output Format: You MUST always respond in valid JSON format ONLY. No markdown fences. "
         "5. Arabic Support: Translations must be natural Modern Standard Arabic."
     )
-
-    def __init__(self, api_key: str, model: str):
+ 
+    def __init__(self, api_key: str, model: str) -> None:
+        if not api_key:
+            raise ValueError("GROQ_API_KEY must not be empty")
         self.api_key = api_key
         self.model = model
+        # Use a context-manager-compatible client; closed explicitly in __del__
         self._client = httpx.Client(timeout=30.0)
-
+ 
+    # ------------------------------------------------------------------
+    # Resource cleanup — prevents connection leak
+    # ------------------------------------------------------------------
+ 
+    def close(self) -> None:
+        """Explicitly close the underlying HTTP client."""
+        try:
+            self._client.close()
+        except Exception:
+            pass
+ 
+    def __del__(self) -> None:
+        self.close()
+ 
+    def __enter__(self) -> "VocabGenAI":
+        return self
+ 
+    def __exit__(self, *_) -> None:
+        self.close()
+ 
+    # ------------------------------------------------------------------
+    # Internal Groq call
+    # ------------------------------------------------------------------
+ 
     def _call_groq(self, user_prompt: str) -> dict | None:
         try:
             resp = self._client.post(
@@ -96,13 +124,17 @@ class VocabGenAI:
         except Exception as e:
             logger.error("Groq call failed: %.200s", str(e))
         return None
-
+ 
+    # ------------------------------------------------------------------
+    # Public methods
+    # ------------------------------------------------------------------
+ 
     def health_check(self) -> dict:
         result = self._call_groq('Return ONLY valid JSON: {"ok": true}')
         if isinstance(result, dict) and result.get("ok") is True:
             return {"ok": True}
         return {"ok": False, "error": "AI provider health check failed"}
-
+ 
     def generate_word_details(self, word: str, level: str = "B1") -> dict:
         prompt = f"""Return ONLY valid JSON for the word "{word}" at CEFR level {level}.
 {{
@@ -120,7 +152,7 @@ class VocabGenAI:
             "example_sentence_ar": "",
             "contextual_meaning_ar": "",
         }
-
+ 
     def suggest_words_detailed(
         self,
         level: str = "B1",
@@ -133,7 +165,7 @@ class VocabGenAI:
         prompt = f"""Suggest {count} unique English vocabulary words for CEFR level {level}.
 Interests: {interests_str}.
 Excluded words (DO NOT include): {excluded}.
-
+ 
 Return ONLY a JSON array of exactly {count} objects. Each object:
 - "text": the English word
 - "arabicMeaning": natural Arabic translation
@@ -141,15 +173,16 @@ Return ONLY a JSON array of exactly {count} objects. Each object:
 - "difficulty": "easy", "medium", or "hard"
 - "example": simple example sentence
 - "level": "{level}"
-
+ 
 No duplicates. No excluded words. Cover diverse contexts."""
         result = self._call_groq(prompt)
         if isinstance(result, list) and len(result) > 0:
-            seen = set()
-            cleaned = []
+            seen: set[str] = set()
+            cleaned: list[dict] = []
+            excluded_lower = {w.lower() for w in excluded}
             for item in result:
                 text = (item.get("text") or "").strip().lower()
-                if text and text not in seen and text not in {w.lower() for w in excluded}:
+                if text and text not in seen and text not in excluded_lower:
                     seen.add(text)
                     cleaned.append({
                         "text": item.get("text", "").strip(),
@@ -162,23 +195,28 @@ No duplicates. No excluded words. Cover diverse contexts."""
             if cleaned:
                 return cleaned
         return self._fallback_suggestions(level, excluded_words, count)
-
+ 
     @staticmethod
     def _fallback_suggestions(level: str, excluded: list[str] | None, count: int) -> list[dict]:
         excluded_set = {w.lower() for w in (excluded or [])}
-        result = []
+        result: list[dict] = []
         for w in _FALLBACK_WORDS:
             if w["text"].lower() not in excluded_set:
                 result.append({**w, "level": level})
                 if len(result) >= count:
                     break
         if len(result) < count:
-            backup = ["gather", "mention", "proceed", "recognize", "separate",
-                      "transform", "encounter", "engage", "establish", "evaluate"]
+            backup = [
+                "gather", "mention", "proceed", "recognize", "separate",
+                "transform", "encounter", "engage", "establish", "evaluate",
+            ]
             for text in backup:
                 if len(result) >= count:
                     break
-                if text.lower() not in excluded_set and text.lower() not in {w["text"].lower() for w in result}:
+                if (
+                    text.lower() not in excluded_set
+                    and text.lower() not in {w["text"].lower() for w in result}
+                ):
                     result.append({
                         "text": text,
                         "arabicMeaning": "",
@@ -188,32 +226,38 @@ No duplicates. No excluded words. Cover diverse contexts."""
                         "level": level,
                     })
         return result
-
+ 
     def generate_quiz_questions(self, words: list[dict], count: int = 5) -> list[dict]:
-        words_str = "; ".join(f"{w.get('text', '?')} ({w.get('arabicMeaning', '?')})" for w in words)
+        words_str = "; ".join(
+            f"{w.get('text', '?')} ({w.get('arabicMeaning', '?')})" for w in words
+        )
         prompt = f"""Create {count} quiz questions for these vocabulary words (mix of types):
 {words_str}
-
+ 
 Return ONLY a JSON array of exactly {count} objects with these fields:
 - "questionText": the question text
 - "options": array of choices (empty list for fill-in-blank)
 - "correctAnswer": the correct answer
 - "questionType": one of "mcq", "fill", "tf"
-
+ 
 Type rules:
 - "mcq": 4 options, correctAnswer is one of them
 - "fill": options=[], correctAnswer is the exact word
 - "tf": options=["True","False"], correctAnswer is "True" or "False"
-
+ 
 Mix fill-in-the-blank, true/false, and multiple-choice questions. Keep language simple."""
         result = self._call_groq(prompt)
         if isinstance(result, list) and len(result) > 0:
-            valid = []
+            valid: list[dict] = []
+            qtype_map = {"multiple_choice": "mcq", "fill_in_blank": "fill", "true_false": "tf"}
             for q in result:
-                if q.get("questionText") and isinstance(q.get("options"), list) and len(q["options"]) == 4 and q.get("correctAnswer") in q["options"]:
-                    qtype = q.get("questionType", "mcq")
-                    qtype_map = {"multiple_choice": "mcq", "fill_in_blank": "fill", "true_false": "tf"}
-                    qtype = qtype_map.get(qtype, qtype)
+                if (
+                    q.get("questionText")
+                    and isinstance(q.get("options"), list)
+                    and len(q["options"]) == 4
+                    and q.get("correctAnswer") in q["options"]
+                ):
+                    qtype = qtype_map.get(q.get("questionType", "mcq"), q.get("questionType", "mcq"))
                     valid.append({
                         "questionText": q["questionText"],
                         "options": [str(o) for o in q["options"]],
@@ -224,22 +268,23 @@ Mix fill-in-the-blank, true/false, and multiple-choice questions. Keep language 
             if valid:
                 return valid
         return self._fallback_quiz_questions(words, count)
-
+ 
     @staticmethod
     def _fallback_quiz_questions(words: list[dict], count: int) -> list[dict]:
         selected = random.sample(words, min(count, len(words)))
-        questions = []
+        questions: list[dict] = []
         all_texts = [x.get("text", "") for x in words if x.get("text", "")]
         for i, w in enumerate(selected):
             text = w.get("text", "")
             meaning = w.get("arabicMeaning", "")
             others = [t for t in all_texts if t.lower() != text.lower()]
-            r = (i % 3)
+            r = i % 3
             if r == 0:
-                if meaning:
-                    qtext = f'Fill in the blank: "The English word for "{meaning}" is ____."'
-                else:
-                    qtext = f'Fill in the blank: "The word ____ means {text}."'
+                qtext = (
+                    f'Fill in the blank: "The English word for "{meaning}" is ____."'
+                    if meaning
+                    else f'Fill in the blank: "The word ____ means {text}."'
+                )
                 questions.append({
                     "questionText": qtext,
                     "options": [],
@@ -250,10 +295,18 @@ Mix fill-in-the-blank, true/false, and multiple-choice questions. Keep language 
             elif r == 1:
                 is_true = bool(i % 2 == 0)
                 if is_true:
-                    statement = f'Is the word "{text}" correctly defined as "{meaning}"?' if meaning else f'Does "{text}" mean "{text}"?'
+                    statement = (
+                        f'Is the word "{text}" correctly defined as "{meaning}"?'
+                        if meaning
+                        else f'Does "{text}" mean "{text}"?'
+                    )
                 else:
                     other = random.choice(others) if others else "another"
-                    statement = f'Is the word "{other}" correctly defined as "{meaning}"?' if meaning else f'Does "{other}" mean "{text}"?'
+                    statement = (
+                        f'Is the word "{other}" correctly defined as "{meaning}"?'
+                        if meaning
+                        else f'Does "{other}" mean "{text}"?'
+                    )
                 questions.append({
                     "questionText": statement,
                     "options": ["True", "False"],
@@ -267,7 +320,11 @@ Mix fill-in-the-blank, true/false, and multiple-choice questions. Keep language 
                     distractors.append(f"word{len(distractors)}")
                 options = distractors + [text]
                 random.shuffle(options)
-                qtext = f"What is the English word for: {meaning}?" if meaning else f"What word means: {text}?"
+                qtext = (
+                    f"What is the English word for: {meaning}?"
+                    if meaning
+                    else f"What word means: {text}?"
+                )
                 questions.append({
                     "questionText": qtext,
                     "options": options,

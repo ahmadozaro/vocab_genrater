@@ -32,11 +32,26 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     super.dispose();
   }
 
+  // -----------------------------------------------------------------------
+  // Build
+  // -----------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final sm2 = context.watch<Sm2QuizProvider>();
-    return WillPopScope(
-      onWillPop: () => _confirmExit(sm2),
+
+    /// PopScope replaces the deprecated WillPopScope (Flutter 3.12+).
+    /// canPop: false prevents the system back gesture from closing the screen
+    /// while a quiz is active; we intercept it with onPopInvokedWithResult.
+    return PopScope(
+      canPop: sm2.state != Sm2QuizState.active,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return; // already popped (e.g. finished/error state)
+        final leave = await _confirmExit(sm2);
+        if (leave && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: LearningAppBar(
@@ -55,6 +70,10 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     );
   }
 
+  // -----------------------------------------------------------------------
+  // Body
+  // -----------------------------------------------------------------------
+
   Widget _body(Sm2QuizProvider sm2) {
     switch (sm2.state) {
       case Sm2QuizState.loading:
@@ -72,15 +91,19 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
         return Center(
           child: ElevatedButton(
             onPressed: sm2.start,
-            child: Text("Start SM2 Review"),
+            child: const Text("Start SM2 Review"),
           ),
         );
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Active quiz
+  // -----------------------------------------------------------------------
+
   Widget _active(Sm2QuizProvider sm2) {
     final question = sm2.currentQuestion;
-    if (question == null) return SizedBox.shrink();
+    if (question == null) return const SizedBox.shrink();
     final selected = sm2.selectedAnswerForCurrent();
 
     return Column(
@@ -93,7 +116,7 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -101,9 +124,9 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
                   "Question ${sm2.currentIndex + 1} of ${sm2.quiz!.questions.length}",
                   style: TextStyle(color: AppColors.textLight),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Container(
-                  padding: EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: BorderRadius.circular(12),
@@ -117,14 +140,14 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 if (question.questionType == 'fill')
                   _sm2FillInBlank(sm2, selected)
                 else
                   ...question.options.map((option) {
                     final isSelected = selected == option;
                     return Padding(
-                      padding: EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: OutlinedButton(
                         style: OutlinedButton.styleFrom(
                           backgroundColor: isSelected
@@ -134,11 +157,10 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
                               ? AppColors.primaryDark
                               : AppColors.textDark,
                           side: BorderSide(
-                            color: isSelected
-                                ? AppColors.primary
-                                : Colors.black12,
+                            color:
+                                isSelected ? AppColors.primary : Colors.black12,
                           ),
-                          padding: EdgeInsets.symmetric(
+                          padding: const EdgeInsets.symmetric(
                             vertical: 14,
                             horizontal: 12,
                           ),
@@ -151,14 +173,14 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
                       ),
                     );
                   }),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     TextButton(
                       onPressed: () => _skipCurrent(sm2),
-                      child: Text("Skip"),
+                      child: const Text("Skip"),
                     ),
-                    Spacer(),
+                    const Spacer(),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -166,7 +188,7 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
                       onPressed: () => _continue(sm2),
                       child: Text(
                         sm2.isLastQuestion ? "Submit" : "Next",
-                        style: TextStyle(color: Colors.white),
+                        style: const TextStyle(color: Colors.white),
                       ),
                     ),
                   ],
@@ -188,7 +210,9 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
       () => TextEditingController(text: selected ?? ''),
     );
 
-    if ((selected ?? '').isEmpty && sm2.currentIsSkipped && controller.text.isNotEmpty) {
+    if ((selected ?? '').isEmpty &&
+        sm2.currentIsSkipped &&
+        controller.text.isNotEmpty) {
       controller.clear();
     }
 
@@ -208,9 +232,12 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,
             ),
-            contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 16,
+            ),
           ),
-          style: TextStyle(fontSize: 16),
+          style: const TextStyle(fontSize: 16),
           onChanged: (val) => sm2.selectAnswer(val.trim()),
           onSubmitted: (val) => sm2.selectAnswer(val.trim()),
         ),
@@ -218,23 +245,30 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     );
   }
 
+  // -----------------------------------------------------------------------
+  // Finished / Error
+  // -----------------------------------------------------------------------
+
   Widget _finished(Sm2QuizProvider sm2) {
     final result = sm2.result ?? {};
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.check_circle, color: AppColors.success, size: 64),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               "${result['score'] ?? 0}/${result['total'] ?? 0}",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text("Daily streak: ${result['dailyStreak'] ?? 0}"),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
                 if (context.mounted) {
@@ -244,7 +278,7 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
                 sm2.reset();
                 if (context.mounted) Navigator.pop(context);
               },
-              child: Text("Done"),
+              child: const Text("Done"),
             ),
           ],
         ),
@@ -255,7 +289,7 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
   Widget _error(Sm2QuizProvider sm2) {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -263,18 +297,26 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
               sm2.errorMessage ?? "Something went wrong",
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 16),
-            ElevatedButton(onPressed: sm2.start, child: Text("Try Again")),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: sm2.start,
+              child: const Text("Try Again"),
+            ),
           ],
         ),
       ),
     );
   }
 
+  // -----------------------------------------------------------------------
+  // Navigation helpers
+  // -----------------------------------------------------------------------
+
   Future<void> _continue(Sm2QuizProvider sm2) async {
     if (!sm2.currentIsAnswered && !sm2.currentIsSkipped) {
       final skip = await _showWarning(
-        "You did not answer this question. If you skip it, it will be counted as wrong and may affect the next review date.",
+        "You did not answer this question. "
+        "If you skip it, it will be counted as wrong and may affect the next review date.",
       );
       if (!skip) return;
       sm2.markCurrentSkipped();
@@ -294,7 +336,8 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
 
   Future<void> _skipCurrent(Sm2QuizProvider sm2) async {
     final skip = await _showWarning(
-      "You did not answer this question. If you skip it, it will be counted as wrong and may affect the next review date.",
+      "You did not answer this question. "
+      "If you skip it, it will be counted as wrong and may affect the next review date.",
     );
     if (!skip) return;
     sm2.markCurrentSkipped();
@@ -304,7 +347,8 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
   Future<bool> _confirmExit(Sm2QuizProvider sm2) async {
     if (sm2.state != Sm2QuizState.active) return true;
     final leave = await _showWarning(
-      "If you leave now, this quiz will not be saved, SM2 will not be updated, and the daily streak will not increase.",
+      "If you leave now, this quiz will not be saved, "
+      "SM2 will not be updated, and the daily streak will not increase.",
     );
     if (leave) {
       await sm2.abandon();
@@ -324,11 +368,11 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: Text("Cancel"),
+                child: const Text("Cancel"),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: Text("Continue"),
+                child: const Text("Continue"),
               ),
             ],
           ),

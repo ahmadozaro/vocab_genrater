@@ -4,6 +4,7 @@ import 'package:ai/features/add_word/screens/add_word.dart';
 import 'package:ai/features/home/screens/home.dart';
 import 'package:ai/features/progress/screens/progress.dart';
 import 'package:ai/features/quiz/screens/quizes.dart';
+import 'package:ai/features/quiz/providers/quiz_provider.dart';
 import 'package:ai/features/settings/screens/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:persistent_bottom_nav_bar/persistent_bottom_nav_bar.dart';
@@ -23,6 +24,20 @@ class _NavigationState extends State<Navigation> {
   void initState() {
     super.initState();
     _controller = PersistentTabController(initialIndex: 0);
+  }
+
+  // FIX #9: if the user navigates away while a quiz is active,
+  // the question timer keeps firing and calls _lockAnswer('') silently.
+  // Reset the quiz so state stays consistent.
+  void _onTabSelected(int index) {
+    const quizTabIndex = 1;
+    if (index != quizTabIndex) {
+      final quiz = context.read<QuizProvider>();
+      if (quiz.state == QuizState.active) {
+        quiz.reset();
+      }
+    }
+    _controller.jumpToTab(index);
   }
 
   @override
@@ -58,7 +73,7 @@ class _NavigationState extends State<Navigation> {
         ),
         navBarHeight: 65,
         padding: const EdgeInsets.symmetric(vertical: 6),
-        onItemSelected: _controller.jumpToTab,
+        onItemSelected: _onTabSelected,
       ),
     );
   }

@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -7,6 +6,7 @@ from app.models.quiz_model import Quiz
 from app.models.word_model import Word
 from app.models.interest_model import user_interests
 
+reset_code_expires_at = Column(DateTime, nullable=True)
 
 class User(Base):
 

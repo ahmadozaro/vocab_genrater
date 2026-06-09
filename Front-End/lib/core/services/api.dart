@@ -6,30 +6,35 @@ import '../models/word.dart';
 import '../models/quiz.dart';
 import '../models/notification.dart';
 
+// ---------------------------------------------------------------------------
+// Custom exceptions
+// ---------------------------------------------------------------------------
+
 class UnauthorizedException implements Exception {
   final String message;
-  UnauthorizedException([this.message = 'Unauthorized']);
-
+  const UnauthorizedException([this.message = 'Unauthorized']);
   @override
   String toString() => message;
 }
 
 class RateLimitException implements Exception {
   final String message;
-  RateLimitException(
+  const RateLimitException(
       [this.message = 'Too many requests. Please try again later.']);
-
   @override
   String toString() => message;
 }
 
 class NetworkException implements Exception {
   final String message;
-  NetworkException([this.message = 'Network error. Please try again.']);
-
+  const NetworkException([this.message = 'Network error. Please try again.']);
   @override
   String toString() => message;
 }
+
+// ---------------------------------------------------------------------------
+// ApiService
+// ---------------------------------------------------------------------------
 
 class ApiService {
   static const String _configuredBaseUrl =
@@ -44,7 +49,10 @@ class ApiService {
     return 'http://localhost:8000';
   }
 
-  // ─── TOKEN CACHE ──────────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // Token management
+  // -------------------------------------------------------------------------
+
   static String? _cachedToken;
   static String? _cachedRefreshToken;
 
@@ -108,19 +116,32 @@ class ApiService {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Unified headers builder — single source of truth
+  // Previously several methods built headers manually; now all go through here.
+  // -------------------------------------------------------------------------
+
   static Future<Map<String, String>> _authHeaders() async {
     final token = await getToken();
     return {
       'Content-Type': 'application/json',
-      if (token != null) 'Authorization': 'Bearer $token',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }
+
+  // -------------------------------------------------------------------------
+  // Response decoding
+  // -------------------------------------------------------------------------
 
   static dynamic _decodeBody(http.Response res) {
     final body = utf8.decode(res.bodyBytes);
     if (body.trim().isEmpty) return {};
     return jsonDecode(body);
   }
+
+  // -------------------------------------------------------------------------
+  // Token refresh + retry
+  // -------------------------------------------------------------------------
 
   static Future<bool> _refreshAccessToken() async {
     final refreshToken = await getRefreshToken();
@@ -153,7 +174,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // ─── AUTH ─────────────────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // Auth endpoints
+  // -------------------------------------------------------------------------
 
   static Future<Map<String, dynamic>> register({
     required String name,
@@ -176,7 +199,6 @@ class ApiService {
     return data;
   }
 
-  // ✅ الإصلاح: تغيير Content-Type لـ JSON وإرسال email بدل username
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
@@ -197,15 +219,13 @@ class ApiService {
     return data;
   }
 
-  // ─── FORGOT PASSWORD ───────────────────────────────────────────────
-
   static Future<Map<String, dynamic>> requestResetCode(String email) async {
-    final response = await http.post(
+    final res = await http.post(
       Uri.parse('$baseUrl/auth/forgot-password'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );
-    return Map<String, dynamic>.from(_handle(response));
+    return Map<String, dynamic>.from(_handle(res));
   }
 
   static Future<void> confirmResetPassword({
@@ -213,7 +233,7 @@ class ApiService {
     required String code,
     required String newPassword,
   }) async {
-    final response = await http.post(
+    final res = await http.post(
       Uri.parse('$baseUrl/auth/reset-password'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -222,74 +242,53 @@ class ApiService {
         'new_password': newPassword,
       }),
     );
-
-    if (response.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(response.bodyBytes));
-      throw Exception(data['detail'] ?? 'فشل إعادة تعيين كلمة المرور');
-    }
+    _handle(res); // throws on error
   }
 
-  // ─── Verify Email OTP ──────────────────────────────────────────
+  /// Verify email OTP.
+  /// Now uses the unified _authHeaders() so the token (if available) is sent.
   static Future<void> verifyEmail({
     required String email,
     required String code,
   }) async {
-    final response = await http.post(
+    final headers = await _authHeaders();
+    final res = await http.post(
       Uri.parse('$baseUrl/auth/verify-email'),
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode({'email': email, 'code': code}),
     );
-
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        data['detail'] ?? data['message'] ?? 'Invalid verification code.',
-      );
-    }
-    final token = data['access_token'];
-    if (token is String && token.isNotEmpty) {
+    final data = _handle(res); // throws on error
+    final token = data is Map ? data['access_token'] as String? : null;
+    if (token != null && token.isNotEmpty) {
       await saveAuthTokens(
         accessToken: token,
-        refreshToken: data['refresh_token'] as String?,
+        refreshToken: data is Map ? data['refresh_token'] as String? : null,
       );
     }
   }
 
-  // ─── Resend Verification Code ──────────────────────────────────
+  /// Resend verification code.
+  /// Now uses the unified _authHeaders() — no more manual header building.
   static Future<Map<String, dynamic>> resendVerificationCode({
     required String email,
   }) async {
-    final token = await getToken();
-    final response = await http.post(
+    final headers = await _authHeaders();
+    final res = await http.post(
       Uri.parse('$baseUrl/auth/resend-verification'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
+      headers: headers,
       body: jsonEncode({'email': email}),
     );
-
-    final data = jsonDecode(utf8.decode(response.bodyBytes));
-
-    if (response.statusCode != 200) {
-      throw Exception(
-        data['detail'] ??
-            data['message'] ??
-            'Failed to resend verification code.',
-      );
-    }
-    return Map<String, dynamic>.from(data);
+    return Map<String, dynamic>.from(_handle(res));
   }
 
-  // ─── USER PROFILE ─────────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // User profile
+  // -------------------------------------------------------------------------
 
   static Future<Map<String, dynamic>> getProfile() async {
     final headers = await _authHeaders();
-    final res = await http.get(
-      Uri.parse('$baseUrl/users/me'),
-      headers: headers,
-    );
+    final res =
+        await http.get(Uri.parse('$baseUrl/users/me'), headers: headers);
     return _handle(res);
   }
 
@@ -326,11 +325,7 @@ class ApiService {
         'new_password': newPassword,
       }),
     );
-    if (res.statusCode != 200) {
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
-      final detail = data['detail'];
-      throw Exception(detail is String ? detail : 'Failed to update password');
-    }
+    _handle(res); // throws on error with detail message
   }
 
   static Future<Map<String, dynamic>> updateLevel(String level) async {
@@ -355,7 +350,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // ─── WORDS ────────────────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // Words
+  // -------------------------------------------------------------------------
 
   static Future<WordModel> createWord({
     required String text,
@@ -391,22 +388,26 @@ class ApiService {
 
   static Future<Map<String, dynamic>> translateInstant(String text) async {
     final headers = await _authHeaders();
-    final uri = Uri.parse(
-      '$baseUrl/words/translate-instant',
-    ).replace(queryParameters: {'text': text});
+    final uri = Uri.parse('$baseUrl/words/translate-instant')
+        .replace(queryParameters: {'text': text});
     final res = await http.get(uri, headers: headers);
     return Map<String, dynamic>.from(_handle(res));
   }
 
   static Future<List<WordModel>> getWords() async {
-    final headers = await _authHeaders();
     Future<http.Response> send() async =>
         http.get(Uri.parse('$baseUrl/words'), headers: await _authHeaders());
-    final res = await http.get(Uri.parse('$baseUrl/words'), headers: headers);
-    final list = await _handleAuthed(res, send) as List;
+    final res = await send();
+    final data = await _handleAuthed(res, send);
+    // Backend now always returns a dict; handle both for safety during migration
+    if (data is List) {
+      return data.map((e) => WordModel.fromJson(e)).toList();
+    }
+    final list = (data as Map)['words'] as List? ?? [];
     return list.map((e) => WordModel.fromJson(e)).toList();
   }
 
+  /// Backend always returns { words, total, page, pages } now (unified format).
   static Future<Map<String, dynamic>> getWordsPage({
     int page = 1,
     int limit = 50,
@@ -421,10 +422,14 @@ class ApiService {
           if (status != null && status.trim().isNotEmpty)
             'status': status.trim(),
         });
+
     Future<http.Response> send() async =>
         http.get(uri(), headers: await _authHeaders());
+
     final res = await send();
     final data = await _handleAuthed(res, send);
+
+    // Defensive: handle bare list in case of an older backend version
     if (data is List) {
       return {
         'words': data.map((e) => WordModel.fromJson(e)).toList(),
@@ -433,6 +438,7 @@ class ApiService {
         'pages': 1,
       };
     }
+
     final map = Map<String, dynamic>.from(data as Map);
     return {
       'words': (map['words'] as List? ?? [])
@@ -467,10 +473,13 @@ class ApiService {
           headers: await _authHeaders(),
         );
     return WordModel.fromJson(
-        Map<String, dynamic>.from(await _handleAuthed(await send(), send)));
+      Map<String, dynamic>.from(await _handleAuthed(await send(), send)),
+    );
   }
 
-  // ─── QUIZ ─────────────────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // Quiz
+  // -------------------------------------------------------------------------
 
   static Future<QuizModel> createQuiz() async {
     final headers = await _authHeaders();
@@ -510,7 +519,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // ─── AI SUGGESTIONS THROUGH BACKEND ──────────────────────────────
+  // -------------------------------------------------------------------------
+  // AI Suggestions
+  // -------------------------------------------------------------------------
 
   static Future<List<Map<String, dynamic>>> suggestWords({
     required String level,
@@ -532,7 +543,9 @@ class ApiService {
     return list.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  // ─── SM2 REVIEW QUIZ ─────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // SM2 Review Quiz
+  // -------------------------------------------------------------------------
 
   static Future<Map<String, dynamic>> startSm2Quiz() async {
     final headers = await _authHeaders();
@@ -578,6 +591,10 @@ class ApiService {
     return _handle(res);
   }
 
+  // -------------------------------------------------------------------------
+  // Progress
+  // -------------------------------------------------------------------------
+
   static Future<Map<String, dynamic>> getProgress() async {
     final headers = await _authHeaders();
     final res = await http.get(
@@ -587,7 +604,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // ─── NOTIFICATIONS ──────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // Notifications
+  // -------------------------------------------------------------------------
 
   static Future<List<AppNotification>> getNotifications() async {
     final headers = await _authHeaders();
@@ -635,7 +654,9 @@ class ApiService {
     return Map<String, dynamic>.from(_handle(res));
   }
 
-  // ─── ERROR HANDLER ────────────────────────────────────────────────
+  // -------------------------------------------------------------------------
+  // Centralised error handler
+  // -------------------------------------------------------------------------
 
   static dynamic _handle(http.Response res) {
     dynamic decoded;
@@ -645,14 +666,18 @@ class ApiService {
       if (res.statusCode >= 200 && res.statusCode < 300) return {};
       throw NetworkException('Invalid server response (${res.statusCode})');
     }
+
     if (res.statusCode >= 200 && res.statusCode < 300) return decoded;
-    if (res.statusCode == 401) throw UnauthorizedException();
+
+    if (res.statusCode == 401) throw const UnauthorizedException();
+
     if (res.statusCode == 429) {
       final detail = decoded is Map ? decoded['detail'] : null;
       throw RateLimitException(
         detail?.toString() ?? 'Too many requests. Please try again later.',
       );
     }
+
     final detail = decoded is Map ? decoded['detail'] : null;
     if (detail is List && detail.isNotEmpty) {
       final first = detail.first;
@@ -664,26 +689,5 @@ class ApiService {
       }
     }
     throw Exception(detail?.toString() ?? 'Server error (${res.statusCode})');
-  }
-
-  // ignore: unused_element
-  static dynamic _handleLegacy(http.Response res) {
-    final String body = utf8.decode(res.bodyBytes);
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      return jsonDecode(body);
-    }
-    try {
-      final err = jsonDecode(body);
-      final detail = err['detail'];
-      if (detail == null) throw Exception('حدث خطأ غير متوقع');
-      if (detail is List && detail.isNotEmpty) {
-        final field = detail[0]['loc']?.last ?? 'unknown';
-        final msg = detail[0]['msg'] ?? '';
-        throw Exception('خطأ في ($field): $msg');
-      }
-      throw Exception(detail.toString());
-    } on FormatException {
-      throw Exception('خطأ في السيرفر (${res.statusCode})');
-    }
   }
 }

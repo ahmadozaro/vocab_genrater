@@ -1,19 +1,31 @@
-from datetime import datetime, timedelta
 
+from datetime import datetime, timezone
+ 
 from sqlalchemy.orm import Session
-
+ 
 from app.models.notification_model import Notification
 from app.models.word_model import Word
 from app.models.progress_model import Progress
-
-
+ 
+ 
+def _utcnow() -> datetime:
+    """Return the current UTC time as a timezone-aware datetime.
+ 
+    Replaces the deprecated ``datetime.utcnow()`` throughout the service.
+    SQLAlchemy columns store naive datetimes, so we strip the tzinfo after
+    obtaining an aware timestamp — this preserves correctness while keeping
+    the DB values timezone-naive (matching the rest of the schema).
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+ 
+ 
 class NotificationService:
-    def __init__(self, db: Session, user_id: int):
+    def __init__(self, db: Session, user_id: int) -> None:
         self.db = db
         self.user_id = user_id
-
+ 
     def _has_type_today(self, type: str) -> bool:
-        today_start = datetime.combine(datetime.utcnow().date(), datetime.min.time())
+        today_start = datetime.combine(_utcnow().date(), datetime.min.time())
         return (
             self.db.query(Notification)
             .filter(
@@ -24,7 +36,7 @@ class NotificationService:
             .first()
             is not None
         )
-
+ 
     def _has_type_ever(self, type: str) -> bool:
         return (
             self.db.query(Notification)
@@ -35,7 +47,7 @@ class NotificationService:
             .first()
             is not None
         )
-
+ 
     def _create(self, title: str, message: str, type: str) -> Notification:
         notif = Notification(
             user_id=self.user_id,
@@ -46,7 +58,7 @@ class NotificationService:
         self.db.add(notif)
         self.db.flush()
         return notif
-
+ 
     def sync_welcome(self) -> Notification | None:
         if not self._has_type_ever("welcome"):
             return self._create(
@@ -55,14 +67,18 @@ class NotificationService:
                 "welcome",
             )
         return None
-
+ 
     def sync_sm2_due(self) -> Notification | None:
         if self._has_type_today("sm2_due"):
             return None
-        now = datetime.utcnow()
+        now = _utcnow()
         words = (
             self.db.query(Word)
-            .filter(Word.user_id == self.user_id, Word.is_active == 1, Word.status != "pending")
+            .filter(
+                Word.user_id == self.user_id,
+                Word.is_active == 1,
+                Word.status != "pending",
+            )
             .all()
         )
         due_count = sum(
@@ -77,7 +93,7 @@ class NotificationService:
                 "sm2_due",
             )
         return None
-
+ 
     def sync_streak_reminder(self) -> Notification | None:
         if self._has_type_today("streak_reminder"):
             return None
@@ -91,7 +107,7 @@ class NotificationService:
         streak = progress.daily_streak or 0
         if streak <= 0:
             return None
-        today = datetime.utcnow().date()
+        today = _utcnow().date()
         if progress.last_sm2_quiz_date == today:
             return None
         return self._create(
@@ -99,13 +115,17 @@ class NotificationService:
             "Complete an SM2 Review Quiz today to keep your streak.",
             "streak_reminder",
         )
-
+ 
     def sync_hard_words(self) -> Notification | None:
         if self._has_type_today("hard_words"):
             return None
         hard_count = (
             self.db.query(Word)
-            .filter(Word.user_id == self.user_id, Word.is_active == 1, Word.status == "hard")
+            .filter(
+                Word.user_id == self.user_id,
+                Word.is_active == 1,
+                Word.status == "hard",
+            )
             .count()
         )
         if hard_count > 0:
@@ -115,13 +135,17 @@ class NotificationService:
                 "hard_words",
             )
         return None
-
+ 
     def sync_pending_words(self) -> Notification | None:
         if self._has_type_today("pending_words"):
             return None
         pending_count = (
             self.db.query(Word)
-            .filter(Word.user_id == self.user_id, Word.is_active == 1, Word.status == "pending")
+            .filter(
+                Word.user_id == self.user_id,
+                Word.is_active == 1,
+                Word.status == "pending",
+            )
             .count()
         )
         if pending_count > 0:
@@ -131,7 +155,7 @@ class NotificationService:
                 "pending_words",
             )
         return None
-
+ 
     def sync_all(self) -> list[Notification]:
         created: list[Notification] = []
         for method in [

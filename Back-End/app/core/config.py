@@ -1,11 +1,12 @@
 from pathlib import Path
-
+ 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
+ 
+ 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-
-
+ 
+ 
 class Settings(BaseSettings):
     SECRET_KEY: str = "change_me"
     ALGORITHM: str = "HS256"
@@ -26,11 +27,25 @@ class Settings(BaseSettings):
     SMTP_USE_TLS: bool = True
     SMTP_USE_SSL: bool = False
     APP_NAME: str = "AI VocabGen"
-
+ 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
         env_file_encoding="utf-8",
     )
-
-
+ 
+    @model_validator(mode="after")
+    def check_production_secrets(self) -> "Settings":
+        if self.ENVIRONMENT.lower() == "production":
+            if self.SECRET_KEY == "change_me":
+                raise ValueError(
+                    "SECRET_KEY must be changed from the default value in production. "
+                    "Set a strong random key in your .env file."
+                )
+            if not self.SECRET_KEY or len(self.SECRET_KEY) < 32:
+                raise ValueError(
+                    "SECRET_KEY must be at least 32 characters long in production."
+                )
+        return self
+ 
+ 
 settings = Settings()

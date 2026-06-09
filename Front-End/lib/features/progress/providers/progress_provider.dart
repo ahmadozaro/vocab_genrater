@@ -46,6 +46,7 @@ class ProgressProvider extends ChangeNotifier {
       _hasLoaded = true;
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
+      _hasLoaded = true;
     } finally {
       _isLoading = false;
       notifyListeners();
