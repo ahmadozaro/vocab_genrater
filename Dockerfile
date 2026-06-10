@@ -2,11 +2,11 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY AI-VocabGen-main/Back-End/requirements.txt .
+COPY Back-End/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY AI-VocabGen-main/Back-End/ .
+COPY Back-End/ .
 
 EXPOSE 8000
 

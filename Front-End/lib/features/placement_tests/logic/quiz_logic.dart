@@ -4,17 +4,17 @@ import 'package:ai/core/models/testslevel_m.dart';
 class QuizLogic {
   int? selectedIndex;
   bool isAnswered = false;
-  int correctCount = 0; // لحفظ عدد الإجابات الصحيحة الكلية
+  int correctCount = 0; 
 
-  // إعدادات الامتحان التكيفي
-  final int maxQuestions = 7; // عدد الأسئلة التي سيتم طرحها على المستخدم
+  
+  final int maxQuestions = 7; 
   int questionsAsked = 0;
 
-  // نبدأ التقييم من المستوى المتوسط B1 (يعادل رقم 3)
-  // 1: A1, 2: A2, 3: B1, 4: B2, 5: C1
+  
+  
   int currentLevelScore = 3;
 
-  // قائمة لتتبع الأسئلة التي تم طرحها لمنع تكرارها
+  
   final List<int> askedQuestionIds = [];
 
   late Testslevel currentQuestion;
@@ -26,7 +26,7 @@ class QuizLogic {
   bool get isLastQuestion => questionsAsked >= maxQuestions;
   double get progress => questionsAsked / maxQuestions;
 
-  // تحويل الرقم إلى حرف المستوى
+  
   String _getLevelString(int score) {
     switch (score) {
       case 1:
@@ -44,23 +44,23 @@ class QuizLogic {
     }
   }
 
-  // سحب سؤال من البنك يناسب المستوى الحالي للمستخدم
+  
   void _fetchNextQuestion() {
     String targetLevel = _getLevelString(currentLevelScore);
 
-    // فلترة الأسئلة التي تطابق المستوى المستهدف ولم يتم طرحها بعد
+    
     List<Testslevel> availableQuestions = testsQuestions.where((q) {
       return q.level == targetLevel && !askedQuestionIds.contains(q.id);
     }).toList();
 
-    // في حال نفاد أسئلة هذا المستوى، نسحب أي سؤال غير مجاب لمستوى قريب
+    
     if (availableQuestions.isEmpty) {
       availableQuestions = testsQuestions
           .where((q) => !askedQuestionIds.contains(q.id))
           .toList();
     }
 
-    // اختيار سؤال عشوائي من المتاح
+    
     availableQuestions.shuffle();
     currentQuestion = availableQuestions.first;
     askedQuestionIds.add(currentQuestion.id);
@@ -77,17 +77,17 @@ class QuizLogic {
   }
 
   bool nextQuestion() {
-    // تعديل مستوى المستخدم التكيفي بناءً على إجابته
+    
     if (selectedIndex == currentQuestion.correctIndex) {
-      currentLevelScore = min(5, currentLevelScore + 1); // نرفع الصعوبة
+      currentLevelScore = min(5, currentLevelScore + 1); 
     } else {
-      currentLevelScore = max(1, currentLevelScore - 1); // ننزل الصعوبة
+      currentLevelScore = max(1, currentLevelScore - 1); 
     }
 
     if (isLastQuestion) {
-      return true; // انتهى الامتحان
+      return true; 
     } else {
-      // تجهيز السؤال التالي
+      
       selectedIndex = null;
       isAnswered = false;
       _fetchNextQuestion();
@@ -95,7 +95,7 @@ class QuizLogic {
     }
   }
 
-  // المستوى النهائي
+  
   String calculateLevel() {
     return _getLevelString(currentLevelScore);
   }

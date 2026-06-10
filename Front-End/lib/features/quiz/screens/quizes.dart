@@ -77,14 +77,14 @@ class _QuizScreenState extends State<QuizScreen> {
     }
   }
 
-  // ─── شاشة البداية ──────────────────────────────────────────────
+  
   Widget _buildIdleScreen(QuizProvider quiz) {
     return SingleChildScrollView(
       padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // بطاقة بدء الكويز
+          
           AnimatedEntry(
             child: Container(
               width: double.infinity,
@@ -198,7 +198,7 @@ class _QuizScreenState extends State<QuizScreen> {
             ),
           ),
 
-          // سجل الكويزات
+          
           if (quiz.history.isNotEmpty) ...[
             Text(
               "Recent Quizzes",
@@ -216,7 +216,7 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
-  // ─── الكويز النشط ──────────────────────────────────────────────
+  
   Widget _buildActiveQuiz(QuizProvider quiz) {
     final question = quiz.currentQuestion;
     if (question == null) {
@@ -246,7 +246,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
     return Column(
       children: [
-        // شريط التقدم
+        
         LinearProgressIndicator(
           value: quiz.progress,
           backgroundColor: AppColors.primaryLight,
@@ -306,7 +306,7 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
-  // ─── إدخال نص لـ fill ─────────────────────────────────────────
+  
   Widget _buildFillInBlank(QuizProvider quiz) {
     return Column(
       children: [
@@ -498,7 +498,7 @@ class _QuizScreenState extends State<QuizScreen> {
     return AppColors.success;
   }
 
-  // ─── شاشة النتيجة ──────────────────────────────────────────────
+  
   Widget _buildFinishedScreen(QuizProvider quiz) {
     return Center(
       child: QuizResultDialog(
@@ -511,7 +511,7 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
-  // ─── شاشة الخطأ ────────────────────────────────────────────────
+  
   Widget _buildErrorScreen(QuizProvider quiz) {
     return Center(
       child: Column(

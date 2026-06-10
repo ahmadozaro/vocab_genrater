@@ -5,7 +5,7 @@ import 'package:ai/core/theme/colors.dart';
 class QuizOptionButton extends StatelessWidget {
   final String label;
   final String? selectedAnswer;
-  final String correctAnswer; // ← من الـ model مباشرة
+  final String correctAnswer; 
   final bool isAnswered;
   final VoidCallback onTap;
 

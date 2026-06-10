@@ -20,6 +20,7 @@ class WordProvider extends ChangeNotifier {
   bool _isSaving = false;
   bool _isLoadingWords = false;
   bool _isLoadingMore = false;
+  String? _lastSavedWordStatus;
   bool _offlineMode = false;
   int _page = 1;
   int _pages = 1;
@@ -30,12 +31,32 @@ class WordProvider extends ChangeNotifier {
 
   WordSearchState get searchState => _searchState;
   List<WordModel> get words => _words;
+
+  List<WordModel> get sortedWords {
+    final ordered = Map<String, int>.from({
+      'hard': 0,
+      'review': 1,
+      'learning': 2,
+      'new': 3,
+      'mastered': 4,
+    });
+    final copy = [..._words];
+    copy.sort((a, b) {
+      final aIndex = ordered[a.status ?? 'new'] ?? 5;
+      final bIndex = ordered[b.status ?? 'new'] ?? 5;
+      if (aIndex != bIndex) return aIndex.compareTo(bIndex);
+      return b.wordId.compareTo(a.wordId);
+    });
+    return copy;
+  }
+
   WordModel? get searchResult => _searchResult;
   String? get errorMessage => _errorMessage;
   bool get isSaving => _isSaving;
   bool get isLoadingWords => _isLoadingWords;
   bool get isLoadingMore => _isLoadingMore;
   bool get offlineMode => _offlineMode;
+  String? get lastSavedWordStatus => _lastSavedWordStatus;
   bool get hasMoreWords => _page < _pages;
   int get totalWords => _total > 0 ? _total : _words.length;
   String? get statusFilter => _statusFilter;
@@ -70,26 +91,54 @@ class WordProvider extends ChangeNotifier {
     loadWords(forceRefresh: true);
   }
 
-  Future<bool> saveWord(String text, String arabicMeaning) async {
+  bool isDuplicateWord(String text) {
+    final normalized = text.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+
+    return _words.any((word) {
+      final candidate = word.text.trim().toLowerCase();
+      return candidate == normalized;
+    });
+  }
+
+  Future<String?> saveWord(String text, String arabicMeaning) async {
     _isSaving = true;
     notifyListeners();
+
+    final trimmedText = text.trim();
+    if (trimmedText.isEmpty) {
+      _errorMessage = 'Please enter a word';
+      _isSaving = false;
+      notifyListeners();
+      return null;
+    }
+
+    if (isDuplicateWord(trimmedText)) {
+      _errorMessage = 'Word already exists in your words';
+      _isSaving = false;
+      notifyListeners();
+      return null;
+    }
+
     try {
-      await ApiService.createWord(
-        text: text,
+      final created = await ApiService.createWord(
+        text: trimmedText,
         arabicMeaning: arabicMeaning,
         audio: _searchResult?.audio,
         source: _searchResult?.source,
         examples: _searchResult?.examples ?? [],
       );
+      _lastSavedWordStatus = created.status;
       await loadWords(forceRefresh: true);
       _searchResult = null;
       _searchState = WordSearchState.idle;
       notifyListeners();
-      return true;
+      return created.status ?? 'new';
     } catch (e) {
+      _lastSavedWordStatus = null;
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
-      return false;
+      return null;
     } finally {
       _isSaving = false;
       notifyListeners();
@@ -139,7 +188,9 @@ class WordProvider extends ChangeNotifier {
   }
 
   Future<void> loadMoreWords() async {
-    if (_isLoadingMore || !hasMoreWords || _offlineMode) return;
+    if (_isLoadingMore || !hasMoreWords || _offlineMode || _isLoadingWords) {
+      return;
+    }
     _isLoadingMore = true;
     notifyListeners();
     try {
@@ -153,6 +204,9 @@ class WordProvider extends ChangeNotifier {
       _page = response['page'] ?? nextPage;
       _pages = response['pages'] ?? _pages;
       _total = response['total'] ?? _total;
+      if (_searchFilter == null && _statusFilter == null) {
+        await _writeCache(_words);
+      }
     } catch (e) {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
     }
@@ -171,6 +225,24 @@ class WordProvider extends ChangeNotifier {
       _errorMessage = e.toString().replaceAll('Exception: ', '');
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> deleteWordFromCache(int wordId) async {
+    final originalCount = _words.length;
+    _words.removeWhere((word) => word.wordId == wordId);
+    if (_words.length != originalCount) {
+      await _writeCache(_words);
+      notifyListeners();
+      return;
+    }
+
+    final cached = await _readAnyCache();
+    if (cached.isNotEmpty) {
+      final updated = cached.where((word) => word.wordId != wordId).toList();
+      if (updated.length != cached.length) {
+        await _writeCache(updated);
+      }
     }
   }
 
@@ -200,7 +272,8 @@ class WordProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final timestamp = prefs.getInt(_cacheTimeKey);
     if (timestamp == null) return [];
-    final age = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(timestamp));
+    final age = DateTime.now()
+        .difference(DateTime.fromMillisecondsSinceEpoch(timestamp));
     if (age > _cacheTtl) return [];
     return _readCachedWords(prefs);
   }
@@ -225,7 +298,8 @@ class WordProvider extends ChangeNotifier {
   Future<void> _writeCache(List<WordModel> words) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_cacheKey, jsonEncode(words.map((w) => w.toJson()).toList()));
+      await prefs.setString(
+          _cacheKey, jsonEncode(words.map((w) => w.toJson()).toList()));
       await prefs.setInt(_cacheTimeKey, DateTime.now().millisecondsSinceEpoch);
     } catch (_) {}
   }

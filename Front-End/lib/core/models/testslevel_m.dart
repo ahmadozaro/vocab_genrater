@@ -3,7 +3,7 @@ class Testslevel {
   final String text;
   final List<String> options;
   final int correctIndex;
-  final String level; // A1, A2, B1, B2, C1
+  final String level; 
   final String hint;
 
   Testslevel({
@@ -16,9 +16,9 @@ class Testslevel {
   });
 }
 
-// بنك الأسئلة المعتمد على CEFR و English Profile
+
 final List<Testslevel> testsQuestions = [
-  // --- A1 ---
+  
   Testslevel(
     id: 1,
     level: 'A1',
@@ -36,7 +36,7 @@ final List<Testslevel> testsQuestions = [
     hint: "تُستخدم مع الجمل المنفية للكميات.",
   ),
 
-  // --- A2 ---
+  
   Testslevel(
     id: 3,
     level: 'A2',
@@ -54,7 +54,7 @@ final List<Testslevel> testsQuestions = [
     hint: "صيغة المقارنة بين شيئين (Comparative).",
   ),
 
-  // --- B1 ---
+  
   Testslevel(
     id: 5,
     level: 'B1',
@@ -72,7 +72,7 @@ final List<Testslevel> testsQuestions = [
     hint: "تُستخدم للتعبير عن الإلزام والقواعد الثابتة.",
   ),
 
-  // --- B2 ---
+  
   Testslevel(
     id: 7,
     level: 'B2',
@@ -90,7 +90,7 @@ final List<Testslevel> testsQuestions = [
     hint: "صيغة المبني للمجهول في الماضي (Passive Voice).",
   ),
 
-  // --- C1 ---
+  
   Testslevel(
     id: 9,
     level: 'C1',

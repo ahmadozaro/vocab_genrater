@@ -20,7 +20,7 @@ const List<InterestModel> kInterests = [
   InterestModel(label: 'Literature', icon: Icons.book),
 ];
 
-// ✅ تحويل label → InterestModel (يدعم custom interests)
+
 InterestModel labelToModel(String label) {
   return kInterests.firstWhere(
     (e) => e.label == label,

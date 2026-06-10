@@ -104,6 +104,18 @@ class Sm2QuizProvider extends ChangeNotifier {
     }
   }
 
+  void goToFirstUnanswered() {
+    if (_quiz == null) return;
+    final firstUnansweredIndex = _quiz!.questions.indexWhere((question) {
+      final answer = _answers[question.itemId]?.answer;
+      return answer == null || answer.trim().isEmpty;
+    });
+    if (firstUnansweredIndex == -1) return;
+    _currentIndex = firstUnansweredIndex;
+    _questionStartedAt = DateTime.now();
+    notifyListeners();
+  }
+
   Future<void> submit({bool confirmEmptyAsWrong = false}) async {
     if (_quiz == null) return;
     _captureCurrentDuration();

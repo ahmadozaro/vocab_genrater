@@ -19,7 +19,7 @@ import 'package:ai/features/placement_tests/screens/testlevel.dart';
 import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
 
-// ─── SettingsScreen ───────────────────────────────────────────────
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -167,9 +167,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => ChangePasswordDialog(
         onSave: ({required currentPassword, required newPassword}) =>
             auth.updatePassword(
-              currentPassword: currentPassword,
-              newPassword: newPassword,
-            ),
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        ),
       ),
     );
     if (!mounted) return;
@@ -178,6 +178,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ok: ok == true,
       successMsg: 'Password updated ✓',
       failMsg: 'Failed to update password',
+    );
+  }
+
+  Future<void> _showDeleteAccountDialog(AuthProvider auth) async {
+    final passwordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'This action is permanent. Enter your password to confirm.',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Current password',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter your current password';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              final success = await auth.deleteAccount(
+                passwordController.text.trim(),
+              );
+              if (ctx.mounted) Navigator.pop(ctx, success);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    SettingsLogic.showSnack(
+      context,
+      ok: confirmed == true,
+      successMsg: 'Account deleted ✓',
+      failMsg: auth.errorMessage ?? 'Failed to delete account',
     );
   }
 
@@ -265,7 +330,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SizedBox(height: 28),
 
-            // ─── Account Info ─────────────────────────────────
+            
             SectionLabel(label: "ACCOUNT INFO"),
             SettingsTile(
               icon: Icons.person_outline,
@@ -316,7 +381,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             SizedBox(height: 16),
 
-            // ─── Learning ─────────────────────────────────────
+            
             SectionLabel(label: "LEARNING"),
             SettingsTile(
               icon: Icons.assignment_turned_in,
@@ -371,7 +436,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SizedBox(height: 16),
 
-            // ─── Preferences ──────────────────────────────────
+            
             SectionLabel(label: "PREFERENCES"),
             SettingsTile(
               icon: Icons.notifications,
@@ -395,7 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SizedBox(height: 16),
 
-            // ─── Security ─────────────────────────────────────
+            
             SectionLabel(label: "SECURITY"),
             SettingsTile(
               icon: Icons.lock_outline,
@@ -406,6 +471,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: AppColors.textLight,
               ),
               onTap: () => _showChangePasswordDialog(auth),
+            ),
+            SettingsTile(
+              icon: Icons.delete_forever,
+              title: "Delete Account",
+              titleColor: AppColors.error,
+              trailing: Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: AppColors.textLight,
+              ),
+              onTap: () => _showDeleteAccountDialog(auth),
             ),
             SettingsTile(
               icon: Icons.logout,

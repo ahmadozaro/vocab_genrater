@@ -33,7 +33,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
             subtitle: "Track your learning momentum",
             icon: Icons.insights_rounded,
             metricLabel: "Streak",
-            metricValue: "${provider.dailyStreak}",
+            metricValue: provider.dailyStreak == 0
+                ? 'ابدأ سلسلتك!'
+                : "${provider.dailyStreak}",
           ),
           body: provider.isLoading && !provider.hasLoaded
               ? Center(
@@ -90,7 +92,9 @@ class _ProgressContent extends StatelessWidget {
                 children: [
                   Text("Daily streak", style: TextStyle(color: Colors.white70)),
                   Text(
-                    "${provider.dailyStreak} days",
+                    provider.dailyStreak == 0
+                        ? 'ابدأ سلسلتك!'
+                        : "${provider.dailyStreak} days",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -147,6 +151,8 @@ class _ProgressContent extends StatelessWidget {
           ],
         ),
         SizedBox(height: 20),
+        _InfoTile(
+            label: "Last Review", value: provider.lastSm2QuizDate ?? "Never"),
         _InfoTile(label: "Overdue", value: "${provider.overdueCount}"),
         _InfoTile(label: "Hard words", value: "${provider.hardCount}"),
         _InfoTile(label: "Pending words", value: "${provider.pendingCount}"),

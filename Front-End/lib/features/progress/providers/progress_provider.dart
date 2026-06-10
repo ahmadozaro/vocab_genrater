@@ -19,10 +19,14 @@ class ProgressProvider extends ChangeNotifier {
   int get masteredWords => _intValue(_progress['masteredWords']);
   int get dailyStreak {
     final value = _intValue(_progress['dailyStreak']);
-    return value <= 0 ? 1 : value;
+    return value < 0 ? 0 : value;
   }
 
   int get completedSm2Quizzes => _intValue(_progress['completedSm2Quizzes']);
+  String? get lastSm2QuizDate =>
+      _progress['lastSm2QuizDate']?.toString() ??
+      _progress['last_sm2_quiz_date']?.toString();
+
   int get dueReviewCount =>
       _intValue(_due['dueCount'] ?? _progress['dueReviewCount']);
   int get overdueCount => _intValue(_due['overdueCount']);

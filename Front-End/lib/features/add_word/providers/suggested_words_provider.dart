@@ -78,6 +78,7 @@ class SuggestedWordsProvider extends ChangeNotifier {
       await ApiService.createWord(
         text: word.text,
         arabicMeaning: word.arabicMeaning,
+        definition: word.definition,
         source: 'ai_suggested',
         examples: [word.example],
       );

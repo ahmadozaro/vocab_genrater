@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ai/core/theme/colors.dart';
 
-// ─── قائمة الأفاتارات المتاحة ─────────────────────────────────
+
 List<Map<String, dynamic>> kAvatars = [
   {'icon': Icons.face, 'color': Color(0xFF4C6FFF)},
   {'icon': Icons.face_2, 'color': Color(0xFFFF6B6B)},
@@ -17,7 +17,7 @@ List<Map<String, dynamic>> kAvatars = [
   {'icon': Icons.auto_awesome, 'color': Color(0xFFFFD93D)},
 ];
 
-// ─── لون بج المستوى ───────────────────────────────────────────
+
 Color _levelColor(String? level) {
   switch (level) {
     case 'A1':
@@ -58,7 +58,7 @@ class ProfileHeader extends StatelessWidget {
     return Center(
       child: Column(
         children: [
-          // ─── الأفاتار ──────────────────────────────────────
+          
           Stack(
             children: [
               GestureDetector(
@@ -92,7 +92,7 @@ class ProfileHeader extends StatelessWidget {
           ),
           SizedBox(height: 12),
 
-          // ─── الاسم ────────────────────────────────────────
+          
           Text(
             userName ?? 'User',
             style: TextStyle(
@@ -102,14 +102,14 @@ class ProfileHeader extends StatelessWidget {
             ),
           ),
 
-          // ─── الإيميل ──────────────────────────────────────
+          
           Text(
             userEmail ?? '',
             style: TextStyle(fontSize: 13, color: AppColors.textLight),
           ),
           SizedBox(height: 8),
 
-          // ─── بج المستوى — يتحدث تلقائياً ─────────────────
+          
           AnimatedContainer(
             duration: Duration(milliseconds: 400),
             curve: Curves.easeInOut,

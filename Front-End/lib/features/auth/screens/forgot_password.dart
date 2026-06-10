@@ -53,14 +53,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _handleSubmit(AuthProvider auth) async {
     final email = _emailController.text.trim();
 
-    // ✅ التحقق من صحة الإيميل دائماً
+    
     if (!_isValidEmail(email)) {
       _showMessage("Please enter a valid email address");
       return;
     }
 
     if (!_isCodeSent) {
-      // ─── إرسال الكود ───────────────────────────
+      
       final success = await auth.requestResetCode(email);
       if (!mounted) return;
       if (success) {
@@ -70,19 +70,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         _showMessage(auth.errorMessage ?? "Failed to send code.");
       }
     } else {
-      // ─── التحقق وتغيير كلمة المرور ─────────────
+      
 
       final code = _codeController.text.trim();
       final pass = _passController.text;
       final confirmPass = _confirmPassController.text;
 
-      // ✅ التحقق من الكود
+      
       if (code.isEmpty || code.length < 4) {
         _showMessage("Please enter the reset code");
         return;
       }
 
-      // ✅ التحقق من كلمة المرور الجديدة
+      
       if (pass.isEmpty) {
         _showMessage("Please enter a new password");
         return;
@@ -92,7 +92,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         return;
       }
 
-      // ✅ التحقق من تطابق كلمتي المرور (كانت مفقودة!)
+      
       if (pass != confirmPass) {
         _showMessage("Passwords do not match");
         return;
@@ -103,7 +103,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       if (success) {
         _showMessage("Password changed successfully!", isError: false);
-        // ✅ تأخير بسيط ليرى المستخدم الرسالة قبل العودة
+        
         await Future.delayed(const Duration(milliseconds: 800));
         if (mounted) Navigator.pop(context);
       } else {
@@ -168,7 +168,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             const SizedBox(height: 40),
 
-            // ─── الحقول ───────────────────────────
+            
             if (!_isCodeSent) ...[
               CustomTextField(
                 label: "Email Address",
@@ -185,7 +185,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
               const SizedBox(height: 15),
 
-              // ✅ كلمة المرور مع زر إظهار/إخفاء
+              
               Stack(
                 alignment: Alignment.centerRight,
                 children: [
@@ -240,7 +240,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
             ],
 
-            // ✅ عرض رسالة خطأ من الـ Provider
+            
             if (auth.errorMessage != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -276,10 +276,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             CustomButton(
               text: _isCodeSent ? "Verify & Change" : "Send Code",
               isLoading: auth.isLoading,
-              onPressed: auth.isLoading ? null : () => _handleSubmit(auth),
+              onPressed: auth.isLoading || auth.isRateLimited
+                  ? null
+                  : () => _handleSubmit(auth),
             ),
+            if (auth.isRateLimited) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Too many requests. Try again in ${auth.rateLimitSecondsRemaining} seconds.',
+                style: TextStyle(color: AppColors.error, fontSize: 14),
+              ),
+            ],
 
-            // ✅ خيار "Resend code" إذا كان الكود قد أُرسل
+            
             if (_isCodeSent) ...[
               const SizedBox(height: 16),
               TextButton(

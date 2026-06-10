@@ -36,7 +36,7 @@ class _AddWordScreenState extends State<AddWordScreen>
   @override
   void initState() {
     super.initState();
-    // ✅ 3 تابات
+    
     _tabController = TabController(length: 3, vsync: this);
     _wordController.addListener(_onWordChanged);
     _wordsScrollController.addListener(_onWordsScrolled);
@@ -106,23 +106,23 @@ class _AddWordScreenState extends State<AddWordScreen>
             activeRequestId != _translationRequestId) {
           return;
         }
-        final meaning =
-            (result['arabicMeaning'] ??
-                    result['translationAr'] ??
-                    result['translation_ar'] ??
-                    result['translationText'] ??
-                    result['translation_text'] ??
-                    '')
-                .toString();
+        final meaning = (result['arabicMeaning'] ??
+                result['translationAr'] ??
+                result['translation_ar'] ??
+                result['translationText'] ??
+                result['translation_text'] ??
+                '')
+            .toString();
         if (meaning.isNotEmpty &&
             (_arabicController.text.isEmpty ||
                 _arabicController.text == _lastAutoArabic)) {
           _lastAutoArabic = meaning;
           _arabicController.text = meaning;
         }
+        await _search(preserveArabic: true);
         setState(() {});
       } catch (_) {
-        // Silent: the user can still type the Arabic meaning manually.
+        
       } finally {
         if (mounted && activeRequestId == _translationRequestId) {
           setState(() => _isTranslating = false);
@@ -131,14 +131,20 @@ class _AddWordScreenState extends State<AddWordScreen>
     });
   }
 
-  Future<void> _search() async {
+  Future<void> _search({bool preserveArabic = false}) async {
     final provider = context.read<WordProvider>();
     FocusScope.of(context).unfocus();
-    _arabicController.clear();
+    if (!preserveArabic) {
+      _arabicController.clear();
+    }
     await provider.searchWord(_wordController.text);
     final result = provider.searchResult;
     if (result?.arabicMeaning != null && mounted) {
-      _arabicController.text = result!.arabicMeaning!;
+      if (!preserveArabic ||
+          _arabicController.text.isEmpty ||
+          _arabicController.text == _lastAutoArabic) {
+        _arabicController.text = result!.arabicMeaning!;
+      }
     }
   }
 
@@ -147,40 +153,60 @@ class _AddWordScreenState extends State<AddWordScreen>
     if (_arabicController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Please enter the Arabic meaning"),
+          content: Text('الرجاء إدخال المعنى بالعربية ⚠️'),
           backgroundColor: AppColors.error,
         ),
       );
       return;
     }
-    final ok = await provider.saveWord(
+    final status = await provider.saveWord(
       _wordController.text.trim(),
       _arabicController.text.trim(),
     );
     if (!mounted) return;
-    if (ok) {
+    if (status != null) {
       context.read<ProgressProvider>().refresh();
       context.read<WordProvider>().loadWords(forceRefresh: true);
       _lastAutoArabic = null;
       _wordController.clear();
       _arabicController.clear();
+      final message = status == 'pending'
+          ? 'تم الحفظ في قائمة الانتظار (ستُفعَّل غداً)'
+          : 'تم الحفظ بنجاح';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Word saved successfully! ✅"),
+          content: Text(message),
           backgroundColor: AppColors.success,
           behavior: SnackBarBehavior.floating,
         ),
       );
-      // ✅ الانتقال لـ My Words (التاب 2 الآن)
+      
       _tabController.animateTo(2);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(provider.errorMessage ?? 'Failed to save'),
+          content: Text(provider.errorMessage ?? 'فشل في الحفظ'),
           backgroundColor: AppColors.error,
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  String _statusLabel(String? status) {
+    switch (status) {
+      case 'new':
+        return 'New';
+      case 'learning':
+        return 'Learning';
+      case 'review':
+        return 'Review';
+      case 'hard':
+        return 'Hard';
+      case 'mastered':
+        return 'Mastered';
+      default:
+        return status ?? 'Filter';
     }
   }
 
@@ -201,7 +227,7 @@ class _AddWordScreenState extends State<AddWordScreen>
           indicatorColor: Colors.white,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
-          // ✅ 3 تابات
+          
           tabs: [
             Tab(icon: Icon(Icons.add), text: "Add Word"),
             Tab(icon: Icon(Icons.auto_awesome), text: "Suggested"),
@@ -213,7 +239,7 @@ class _AddWordScreenState extends State<AddWordScreen>
         controller: _tabController,
         children: [
           _buildAddTab(),
-          // ✅ تاب الكلمات المقترحة
+          
           SuggestedWordsTab(tabController: _tabController),
           _buildListTab(),
         ],
@@ -221,7 +247,7 @@ class _AddWordScreenState extends State<AddWordScreen>
     );
   }
 
-  // ─── تاب الإضافة ───────────────────────────────────────────
+  
   Widget _buildAddTab() {
     return Consumer<WordProvider>(
       builder: (context, provider, _) {
@@ -239,7 +265,6 @@ class _AddWordScreenState extends State<AddWordScreen>
                 ),
               ),
               SizedBox(height: 12),
-
               Row(
                 children: [
                   Expanded(
@@ -281,7 +306,6 @@ class _AddWordScreenState extends State<AddWordScreen>
                 ],
               ),
               SizedBox(height: 16),
-
               if (_isTranslating)
                 Padding(
                   padding: EdgeInsets.only(bottom: 12),
@@ -300,7 +324,6 @@ class _AddWordScreenState extends State<AddWordScreen>
                     ],
                   ),
                 ),
-
               if (provider.searchState == WordSearchState.error)
                 Container(
                   padding: EdgeInsets.all(12),
@@ -322,12 +345,10 @@ class _AddWordScreenState extends State<AddWordScreen>
                     ],
                   ),
                 ),
-
               if (_wordController.text.trim().isNotEmpty) ...[
                 AnimatedEntry(
                   child: WordResultCard(
-                    word:
-                        provider.searchResult ??
+                    word: provider.searchResult ??
                         WordModel(
                           wordId: 0,
                           text: _wordController.text.trim(),
@@ -360,7 +381,7 @@ class _AddWordScreenState extends State<AddWordScreen>
     );
   }
 
-  // ─── تاب القائمة ───────────────────────────────────────────
+  
   Widget _buildListTab() {
     return Consumer<WordProvider>(
       builder: (context, provider, _) {
@@ -424,7 +445,8 @@ class _AddWordScreenState extends State<AddWordScreen>
                 decoration: BoxDecoration(
                   color: AppColors.warning.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.warning.withOpacity(0.35)),
+                  border:
+                      Border.all(color: AppColors.warning.withOpacity(0.35)),
                 ),
                 child: Text(
                   "Offline mode active",
@@ -515,28 +537,142 @@ class _AddWordScreenState extends State<AddWordScreen>
                 ],
               ),
             ),
-            Expanded(
-              child: ListView.builder(
-                controller: _wordsScrollController,
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                itemCount: provider.words.length + (provider.isLoadingMore ? 1 : 0),
-                itemBuilder: (_, i) {
-                  if (i >= provider.words.length) {
-                    return Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-                  final word = provider.words[i];
-                  return AnimatedEntry(
-                    index: i,
-                    child: WordListItem(
-                      word: word,
-                      onDelete: () => _deleteWordWithUndo(provider, word),
+            if (provider.statusFilter != null) ...[
+              SizedBox(height: 12),
+              Container(
+                margin: EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Filtered by ${_statusLabel(provider.statusFilter)}. Tap Clear to show all words.',
+                        style: TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 13,
+                        ),
+                      ),
                     ),
-                  );
-                },
+                    TextButton(
+                      onPressed: () => provider.updateStatusFilter(null),
+                      child: Text('Clear'),
+                    ),
+                  ],
+                ),
               ),
+            ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Words Overview',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        '${provider.words.length} words in your vocabulary',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      provider.words.isEmpty ? 'Empty' : 'Sorted by status',
+                      style: TextStyle(color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: provider.sortedWords.isEmpty && !provider.isLoadingMore
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.inbox,
+                                size: 56, color: AppColors.textLight),
+                            SizedBox(height: 16),
+                            Text(
+                              provider.statusFilter != null
+                                  ? 'No words match this filter.'
+                                  : 'No words yet!',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textDark,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              provider.statusFilter != null
+                                  ? 'Try clearing the filter or add new words to see them here.'
+                                  : 'Add your first word to get started.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textLight,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (provider.statusFilter != null) ...[
+                              SizedBox(height: 16),
+                              TextButton(
+                                onPressed: () =>
+                                    provider.updateStatusFilter(null),
+                                child: Text('Show all words'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: _wordsScrollController,
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: provider.sortedWords.length +
+                          (provider.isLoadingMore ? 1 : 0),
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (_, i) {
+                        if (i >= provider.sortedWords.length) {
+                          return Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final word = provider.sortedWords[i];
+                        return AnimatedEntry(
+                          index: i,
+                          child: WordListItem(
+                            word: word,
+                            onDelete: () => _deleteWordWithUndo(provider, word),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ],
         );
@@ -544,7 +680,30 @@ class _AddWordScreenState extends State<AddWordScreen>
     );
   }
 
-  Future<void> _deleteWordWithUndo(WordProvider provider, WordModel word) async {
+  Future<void> _deleteWordWithUndo(
+      WordProvider provider, WordModel word) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Word'),
+        content: Text(
+            'Are you sure you want to delete "${word.text}" from My Words?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     final ok = await provider.deleteWord(word.wordId);
     if (!mounted) return;
     if (!ok) {
@@ -558,9 +717,9 @@ class _AddWordScreenState extends State<AddWordScreen>
     }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Word deleted"),
+        content: Text('"${word.text}" deleted'),
         action: SnackBarAction(
-          label: "UNDO",
+          label: 'UNDO',
           onPressed: () => provider.restoreWord(word.wordId),
         ),
       ),

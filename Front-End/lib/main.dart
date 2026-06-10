@@ -8,13 +8,13 @@ import 'package:ai/features/quiz/providers/quiz_provider.dart';
 import 'package:ai/features/quiz/providers/sm2_quiz_provider.dart';
 import 'package:ai/features/add_word/providers/word_provider.dart';
 import 'package:ai/features/progress/providers/progress_provider.dart';
+import 'package:ai/features/settings/screens/settings.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:ai/core/navigation/navigation_all.dart';
 import 'package:ai/features/auth/screens/login.dart';
 import 'package:ai/features/auth/screens/register.dart';
 import 'package:ai/features/placement_tests/screens/testlevel.dart';
-
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,30 +37,57 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, theme, _) => MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'AI VOCABGEN',
-          theme: theme.lightTheme,
-          darkTheme: theme.darkTheme,
-          themeMode: theme.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          home: const _AppRouter(),
+      child: _AppLifecycleListener(
+        child: Consumer<ThemeProvider>(
+          builder: (context, theme, _) => MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'AI VOCABGEN',
+            theme: theme.lightTheme,
+            darkTheme: theme.darkTheme,
+            themeMode: theme.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            home: const _AppRouter(),
+          ),
         ),
       ),
     );
   }
 }
 
-class _AppRouter extends StatelessWidget {
+class _AppRouter extends StatefulWidget {
   const _AppRouter();
+
+  @override
+  State<_AppRouter> createState() => _AppRouterState();
+}
+
+class _AppRouterState extends State<_AppRouter> {
+  bool _wasLoggedIn = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    _wasLoggedIn = auth.isLoggedIn;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
+        if (_wasLoggedIn && !auth.isLoggedIn) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            context.read<Sm2QuizProvider>().reset();
+            context.read<QuizProvider>().reset();
+            context.read<WordProvider>().clearSearch();
+          });
+        }
+        _wasLoggedIn = auth.isLoggedIn;
+
         if (auth.isInitializing) return const _SplashScreen();
 
         if (!auth.isLoggedIn) return const _AuthFlow();
+
+        if (!auth.isEmailVerified) return const SettingsScreen();
 
         if (auth.needsInterests) return const InterestsScreen();
 
@@ -69,6 +96,43 @@ class _AppRouter extends StatelessWidget {
         return const Navigation();
       },
     );
+  }
+}
+
+class _AppLifecycleListener extends StatefulWidget {
+  final Widget child;
+  const _AppLifecycleListener({required this.child});
+
+  @override
+  State<_AppLifecycleListener> createState() => _AppLifecycleListenerState();
+}
+
+class _AppLifecycleListenerState extends State<_AppLifecycleListener>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final notifier =
+          Provider.of<NotificationProvider>(context, listen: false);
+      notifier.sync();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
   }
 }
 

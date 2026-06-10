@@ -6,7 +6,7 @@ import 'package:ai/features/add_word/providers/suggested_words_provider.dart';
 import 'package:ai/features/add_word/providers/word_provider.dart';
 import 'package:ai/features/progress/providers/progress_provider.dart';
 
-// ─── Model
+
 class SuggestedWordsTab extends StatefulWidget {
   final TabController tabController;
 
@@ -50,7 +50,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
     );
   }
 
-  // ─── Loading ──────────────────────────────────────────────────
+  
   Widget _buildLoading() {
     return Center(
       child: Column(
@@ -99,7 +99,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
     );
   }
 
-  // ─── Error ────────────────────────────────────────────────────
+  
   Widget _buildError(SuggestedWordsProvider provider) {
     return Center(
       child: Padding(
@@ -145,7 +145,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
     );
   }
 
-  // ─── Empty ────────────────────────────────────────────────────
+  
   Widget _buildEmpty() {
     return Center(
       child: Column(
@@ -190,7 +190,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
     );
   }
 
-  // ─── List ─────────────────────────────────────────────────────
+  
   Widget _buildList(SuggestedWordsProvider provider) {
     final active = provider.activeSuggestions;
     final savedCount = provider.suggestions
@@ -202,7 +202,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
 
     return Column(
       children: [
-        // ─── Header Banner ──────────────────────────────────
+        
         Container(
           margin: EdgeInsets.fromLTRB(16, 16, 16, 0),
           padding: EdgeInsets.all(16),
@@ -255,7 +255,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
                   ],
                 ),
               ),
-              // زر إعادة التحميل
+              
               IconButton(
                 onPressed: () {
                   provider.reset();
@@ -281,7 +281,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
 
         SizedBox(height: 12),
 
-        // ─── Cards ──────────────────────────────────────────
+        
         if (active.isEmpty)
           Expanded(
             child: Center(
@@ -340,13 +340,16 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
                   final ok = await provider.saveWord(active[i]);
                   if (!mounted) return;
                   if (ok) {
-                    // تحديث قائمة كلماتي
-                    context.read<WordProvider>().loadWords();
+                    
+                    await context
+                        .read<WordProvider>()
+                        .loadWords(forceRefresh: true);
+                    if (!mounted) return;
                     context.read<ProgressProvider>().refresh();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          '"${active[i].text}" added to My Words ✅',
+                          '"${active[i].text}" تمت إضافتها إلى كلماتي',
                         ),
                         backgroundColor: AppColors.success,
                         behavior: SnackBarBehavior.floating,
@@ -364,7 +367,7 @@ class _SuggestedWordsTabState extends State<SuggestedWordsTab> {
   }
 }
 
-// ─── Card Widget ──────────────────────────────────────────────────
+
 class _SuggestedWordCard extends StatefulWidget {
   final SuggestedWord word;
   final VoidCallback onSave;
@@ -408,9 +411,8 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
         color: isSaved ? Color(0xFFF0FDF4) : AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isSaved
-              ? Color(0xFF22C55E).withOpacity(0.4)
-              : Color(0xFFE8E4F5),
+          color:
+              isSaved ? Color(0xFF22C55E).withOpacity(0.4) : Color(0xFFE8E4F5),
           width: 1.5,
         ),
         boxShadow: [
@@ -423,13 +425,13 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
       ),
       child: Column(
         children: [
-          // ─── Main Row ──────────────────────────────────
+          
           Padding(
             padding: EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // أيقونة الكلمة
+                
                 Container(
                   width: 46,
                   height: 46,
@@ -451,7 +453,7 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
                 ),
                 SizedBox(width: 12),
 
-                // محتوى الكلمة
+                
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,7 +520,7 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
             ),
           ),
 
-          // ─── Example (expanded) ─────────────────────────
+          
           if (_expanded)
             Container(
               margin: EdgeInsets.fromLTRB(14, 0, 14, 10),
@@ -551,7 +553,7 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
               ),
             ),
 
-          // ─── Actions ────────────────────────────────────
+          
           if (!isSaved)
             Container(
               decoration: BoxDecoration(
@@ -561,7 +563,7 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
               ),
               child: Row(
                 children: [
-                  // زر التوسع
+                  
                   Expanded(
                     child: TextButton.icon(
                       onPressed: () => setState(() => _expanded = !_expanded),
@@ -582,10 +584,10 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
                     ),
                   ),
 
-                  // فاصل
+                  
                   Container(width: 1, height: 24, color: Color(0xFFE8E4F5)),
 
-                  // زر الرفض
+                  
                   Expanded(
                     child: TextButton.icon(
                       onPressed: isSaving ? null : widget.onReject,
@@ -601,10 +603,10 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
                     ),
                   ),
 
-                  // فاصل
+                  
                   Container(width: 1, height: 24, color: Color(0xFFE8E4F5)),
 
-                  // زر الحفظ
+                  
                   Expanded(
                     child: isSaving
                         ? Center(
@@ -638,7 +640,7 @@ class _SuggestedWordCardState extends State<_SuggestedWordCard> {
               ),
             )
           else
-            // حالة المحفوظة
+            
             InkWell(
               onTap: widget.onViewWords,
               child: Container(

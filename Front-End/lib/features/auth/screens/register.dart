@@ -207,56 +207,58 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildCurrentStep(AuthProvider auth) {
     return switch (_step) {
       0 => RegisterFormStep(
-        stepKey: const ValueKey('form'),
-        formKey: _formKey,
-        nameController: _nameController,
-        emailController: _emailController,
-        passwordController: _passwordController,
-        confirmController: _confirmController,
-        obscurePassword: _obscurePassword,
-        obscureConfirm: _obscureConfirm,
-        isLoading: auth.isLoading,
-        errorMessage: auth.errorMessage,
-        onTogglePassword: () {
-          setState(() => _obscurePassword = !_obscurePassword);
-        },
-        onToggleConfirm: () {
-          setState(() => _obscureConfirm = !_obscureConfirm);
-        },
-        onSubmit: _registerAndSendOtp,
-        onLoginTap: () {
-          auth.clearError();
-          widget.controller?.animateToPage(
-            0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.ease,
-          );
-        },
-      ),
+          stepKey: const ValueKey('form'),
+          formKey: _formKey,
+          nameController: _nameController,
+          emailController: _emailController,
+          passwordController: _passwordController,
+          confirmController: _confirmController,
+          obscurePassword: _obscurePassword,
+          obscureConfirm: _obscureConfirm,
+          isLoading: auth.isLoading,
+          isRateLimited: auth.isRateLimited,
+          rateLimitSecondsRemaining: auth.rateLimitSecondsRemaining,
+          errorMessage: auth.errorMessage,
+          onTogglePassword: () {
+            setState(() => _obscurePassword = !_obscurePassword);
+          },
+          onToggleConfirm: () {
+            setState(() => _obscureConfirm = !_obscureConfirm);
+          },
+          onSubmit: _registerAndSendOtp,
+          onLoginTap: () {
+            auth.clearError();
+            widget.controller?.animateToPage(
+              0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.ease,
+            );
+          },
+        ),
       1 => RegisterOtpStep(
-        stepKey: const ValueKey('otp'),
-        email: _emailController.text.trim(),
-        otpControllers: _otpControllers,
-        otpFocusNodes: _otpFocusNodes,
-        errorMessage: auth.errorMessage,
-        debugCode: auth.lastVerificationDebugCode,
-        resendCountdown: _resendCountdown,
-        isLoading: auth.isLoading || _isVerifying,
-        isResending: _isResending,
-        onBackToStep: _goToStep,
-        onVerify: _verifyOtp,
-        onResend: _resendOtp,
-        onSkip: auth.skipVerification,
-        onOtpChanged: _onOtpChanged,
-      ),
+          stepKey: const ValueKey('otp'),
+          email: _emailController.text.trim(),
+          otpControllers: _otpControllers,
+          otpFocusNodes: _otpFocusNodes,
+          errorMessage: auth.errorMessage,
+          debugCode: auth.lastVerificationDebugCode,
+          resendCountdown: _resendCountdown,
+          isLoading: auth.isLoading || _isVerifying,
+          isResending: _isResending,
+          onBackToStep: _goToStep,
+          onVerify: _verifyOtp,
+          onResend: _resendOtp,
+          onSkip: auth.skipVerification,
+          onOtpChanged: _onOtpChanged,
+        ),
       2 => RegisterInterestsStep(
-        stepKey: const ValueKey('interests'),
-        selectedInterests: _selectedInterests,
-        isLoading: auth.isLoading,
-        onBackToStep: _goToStep,
-        onChanged: (data) => setState(() => _selectedInterests = data),
-        onContinue: _continueFromInterests,
-      ),
+          stepKey: const ValueKey('interests'),
+          selectedInterests: _selectedInterests,
+          isLoading: auth.isLoading,
+          onBackToStep: _goToStep,
+          onChanged: (data) => setState(() => _selectedInterests = data),
+          onContinue: _continueFromInterests,
+        ),
       _ => const SizedBox.shrink(),
     };
   }
@@ -280,8 +282,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           transitionBuilder: (child, animation) => SlideTransition(
             position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
                 .animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                ),
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
             child: child,
           ),
           child: _buildCurrentStep(auth),

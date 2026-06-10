@@ -68,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, wordsProvider, progressProvider, notifProvider, _) {
         final isLoading =
             (wordsProvider.isLoadingWords && wordsProvider.words.isEmpty) ||
-            (progressProvider.isLoading && !progressProvider.hasLoaded);
+                (progressProvider.isLoading && !progressProvider.hasLoaded);
 
         return Scaffold(
           backgroundColor: AppColors.background,
@@ -77,7 +77,9 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: "Welcome back to your vocabulary path",
             icon: Icons.auto_stories_rounded,
             metricLabel: "Streak",
-            metricValue: "${progressProvider.dailyStreak}",
+            metricValue: progressProvider.dailyStreak == 0
+                ? 'ابدأ سلسلتك!'
+                : "${progressProvider.dailyStreak}",
             actions: [
               const SizedBox(width: 8),
               _NotificationBell(
@@ -133,9 +135,20 @@ class _HomeContent extends StatelessWidget {
     final mastered = progressProvider.masteredWords;
     final streak = progressProvider.dailyStreak;
     final dueCount = progressProvider.dueReviewCount;
-    final dailyValue = active == 0 ? 0.0 : (active / 10.0).clamp(0.0, 1.0);
+    final activeDisplay = active > 10 ? 10 : active;
+    final dailyValue =
+        activeDisplay == 0 ? 0.0 : (activeDisplay / 10.0).clamp(0.0, 1.0);
+    final now = DateTime.now();
     final dueWords = words
-        .where((w) => (w.status ?? '') != 'pending')
+        .where((w) {
+          if ((w.status ?? '') == 'pending') return false;
+          if (w.nextReviewDate == null) return true;
+          try {
+            return DateTime.parse(w.nextReviewDate!).isBefore(now);
+          } catch (_) {
+            return false;
+          }
+        })
         .take(5)
         .toList();
 
@@ -161,7 +174,7 @@ class _HomeContent extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '$active / 10 Words',
+                  '$activeDisplay / 10 Words',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -195,7 +208,7 @@ class _HomeContent extends StatelessWidget {
                 child: _StatCard(
                   icon: Icons.local_fire_department,
                   label: 'Streak',
-                  value: '$streak Days',
+                  value: streak == 0 ? 'ابدأ سلسلتك!' : '$streak Days',
                   color: AppColors.warning,
                 ),
               ),
@@ -243,16 +256,16 @@ class _HomeContent extends StatelessWidget {
           )
         else
           ...dueWords.asMap().entries.map(
-            (entry) => AnimatedEntry(
-              index: entry.key + 4,
-              child: _WordCard(
-                wordId: entry.value.wordId,
-                word: entry.value.text,
-                meaning: entry.value.arabicMeaning ?? '',
-                level: entry.value.status ?? 'new',
+                (entry) => AnimatedEntry(
+                  index: entry.key + 4,
+                  child: _WordCard(
+                    wordId: entry.value.wordId,
+                    word: entry.value.text,
+                    meaning: entry.value.arabicMeaning ?? '',
+                    level: entry.value.status ?? 'new',
+                  ),
+                ),
               ),
-            ),
-          ),
       ],
     );
   }

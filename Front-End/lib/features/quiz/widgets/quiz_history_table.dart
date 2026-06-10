@@ -15,10 +15,9 @@ class QuizHistoryTable extends StatelessWidget {
     final average = history.isEmpty
         ? 0
         : (history.map(_percent).reduce((a, b) => a + b) / history.length)
-              .round();
-    final trend = history.length < 2
-        ? 0
-        : _percent(history.first) - _percent(history[1]);
+            .round();
+    final trend =
+        history.length < 2 ? 0 : _percent(history.first) - _percent(history[1]);
 
     return Column(
       children: [
@@ -72,9 +71,8 @@ class QuizHistoryTable extends StatelessWidget {
                 ...history.take(6).toList().asMap().entries.map((entry) {
                   final index = entry.key;
                   final item = entry.value;
-                  final previous = index + 1 < history.length
-                      ? history[index + 1]
-                      : null;
+                  final previous =
+                      index + 1 < history.length ? history[index + 1] : null;
                   return _HistoryRow(
                     history: item,
                     previous: previous,
@@ -221,9 +219,9 @@ class _HistoryRow extends StatelessWidget {
     if (previousItem == null || previousItem.questionsCount <= 0) return null;
     final previousPercent =
         (previousItem.score / previousItem.questionsCount * 100).round().clamp(
-          0,
-          100,
-        );
+              0,
+              100,
+            );
     return _percent - previousPercent;
   }
 
@@ -238,6 +236,16 @@ class _HistoryRow extends StatelessWidget {
     if (_percent >= 70) return 'Strong';
     if (_percent >= 50) return 'Needs review';
     return 'Practice more';
+  }
+
+  String _displayQuizType(String type) {
+    return type
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}')
+        .join(' ');
   }
 
   void _showDetails(BuildContext context) {
@@ -289,8 +297,20 @@ class _HistoryRow extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                      SizedBox(height: 4),
                       Text(
-                        history.date.isEmpty ? 'No date saved' : history.date,
+                        history.quizType != null && history.quizType!.isNotEmpty
+                            ? _displayQuizType(history.quizType!)
+                            : 'Vocabulary Review',
+                        style: TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        history.formattedDate,
                         style: TextStyle(
                           color: AppColors.textLight,
                           fontSize: 12,
@@ -328,6 +348,15 @@ class _HistoryRow extends StatelessWidget {
                   label: 'Rate',
                   value: '$_percent%',
                   color: _scoreColor,
+                ),
+                _DetailTile(
+                  icon: Icons.tag_rounded,
+                  label: 'Type',
+                  value:
+                      history.quizType != null && history.quizType!.isNotEmpty
+                          ? _displayQuizType(history.quizType!)
+                          : 'Vocabulary',
+                  color: AppColors.primary,
                 ),
                 _DetailTile(
                   icon: _deltaIcon,
@@ -386,8 +415,8 @@ class _HistoryRow extends StatelessWidget {
     final deltaColor = delta == null || delta == 0
         ? AppColors.textLight
         : delta > 0
-        ? AppColors.success
-        : AppColors.error;
+            ? AppColors.success
+            : AppColors.error;
 
     return PressableScale(
       onTap: () => _showDetails(context),
@@ -406,9 +435,8 @@ class _HistoryRow extends StatelessWidget {
                         isLatest
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
-                        color: isLatest
-                            ? AppColors.primary
-                            : AppColors.textLight,
+                        color:
+                            isLatest ? AppColors.primary : AppColors.textLight,
                         size: 16,
                       ),
                       SizedBox(width: 6),

@@ -26,9 +26,9 @@ class _NavigationState extends State<Navigation> {
     _controller = PersistentTabController(initialIndex: 0);
   }
 
-  // FIX #9: if the user navigates away while a quiz is active,
-  // the question timer keeps firing and calls _lockAnswer('') silently.
-  // Reset the quiz so state stays consistent.
+  
+  
+  
   void _onTabSelected(int index) {
     const quizTabIndex = 1;
     if (index != quizTabIndex) {

@@ -43,13 +43,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text("Welcome back!"),
+          content: Text('أهلاً بعودتك! 👋'),
           backgroundColor: Colors.green,
           duration: Duration(seconds: 1),
         ),
       );
     } else {
-      _showError(messenger, auth.errorMessage ?? 'Invalid email or password');
+      _showError(messenger,
+          auth.errorMessage ?? 'بريد إلكتروني أو كلمة مرور غير صحيحة');
     }
   }
 
@@ -151,8 +152,15 @@ class _LoginScreenState extends State<LoginScreen> {
         CustomButton(
           text: "Sign In",
           isLoading: auth.isLoading,
-          onPressed: auth.isLoading ? null : _handleLogin,
+          onPressed: auth.isLoading || auth.isRateLimited ? null : _handleLogin,
         ),
+        if (auth.isRateLimited) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Too many requests. Try again in ${auth.rateLimitSecondsRemaining} seconds.',
+            style: TextStyle(color: AppColors.error, fontSize: 14),
+          ),
+        ],
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,

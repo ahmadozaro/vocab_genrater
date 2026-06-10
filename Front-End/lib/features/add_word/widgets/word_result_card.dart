@@ -19,6 +19,7 @@ class WordResultCard extends StatefulWidget {
 }
 
 class _WordResultCardState extends State<WordResultCard> {
+  bool _isPlayingAudio = false;
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
@@ -28,17 +29,42 @@ class _WordResultCardState extends State<WordResultCard> {
   }
 
   Future<void> _playAudio() async {
-    final audio = widget.word.audio;
-    if (audio == null || audio.isEmpty) return;
+    if (_isPlayingAudio) return;
+
+    setState(() => _isPlayingAudio = true);
 
     try {
+      String audioUrl = widget.word.audio ?? '';
+
+      
+      if (audioUrl.isEmpty) {
+        audioUrl =
+            'https://ssl.gstatic.com/dictionary/static/sounds/oxford/${widget.word.text.toLowerCase()}.mp3';
+      }
+
+      if (audioUrl.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذر تشغيل الصوت 🔈'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        setState(() => _isPlayingAudio = false);
+        return;
+      }
+
       await _audioPlayer.stop();
-      await _audioPlayer.play(UrlSource(audio));
+      await _audioPlayer.play(UrlSource(audioUrl));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Unable to play audio')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to play audio')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isPlayingAudio = false);
+      }
     }
   }
 
@@ -75,12 +101,22 @@ class _WordResultCardState extends State<WordResultCard> {
                   ),
                 ),
               ),
-              if (widget.word.audio != null)
-                IconButton(
-                  tooltip: 'Play pronunciation',
-                  onPressed: _playAudio,
-                  icon: Icon(Icons.volume_up, color: AppColors.primary),
-                ),
+              IconButton(
+                tooltip: 'Play pronunciation',
+                onPressed: _isPlayingAudio ? null : _playAudio,
+                icon: _isPlayingAudio
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
+                        ),
+                      )
+                    : Icon(Icons.volume_up, color: AppColors.primary),
+              ),
             ],
           ),
           Divider(height: 28),
@@ -147,6 +183,34 @@ class _WordResultCardState extends State<WordResultCard> {
                         ),
                       ),
                     ),
+                    if (widget.word.audio != null &&
+                        widget.word.audio!.isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.only(left: 8, top: 2),
+                        child: InkWell(
+                          onTap: _isPlayingAudio ? null : _playAudio,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: EdgeInsets.all(4),
+                            child: _isPlayingAudio
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primary,
+                                      ),
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.volume_up,
+                                    size: 18,
+                                    color: AppColors.primary,
+                                  ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

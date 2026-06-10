@@ -6,6 +6,12 @@ import 'package:ai/core/theme/colors.dart';
 import 'package:ai/core/widgets/appbar.dart';
 import 'package:ai/features/quiz/providers/sm2_quiz_provider.dart';
 
+enum _UnansweredAction {
+  cancel,
+  review,
+  submit,
+}
+
 class Sm2ReviewQuizScreen extends StatefulWidget {
   const Sm2ReviewQuizScreen({super.key});
 
@@ -19,34 +25,36 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<Sm2QuizProvider>().start();
-    });
+  }
+
+  void _clearFillControllers() {
+    for (final controller in _fillControllers.values) {
+      controller.dispose();
+    }
+    _fillControllers.clear();
   }
 
   @override
   void dispose() {
-    for (final controller in _fillControllers.values) {
-      controller.dispose();
-    }
+    _clearFillControllers();
     super.dispose();
   }
 
-  // -----------------------------------------------------------------------
-  // Build
-  // -----------------------------------------------------------------------
+  
+  
+  
 
   @override
   Widget build(BuildContext context) {
     final sm2 = context.watch<Sm2QuizProvider>();
 
-    /// PopScope replaces the deprecated WillPopScope (Flutter 3.12+).
-    /// canPop: false prevents the system back gesture from closing the screen
-    /// while a quiz is active; we intercept it with onPopInvokedWithResult.
+    
+    
+    
     return PopScope(
       canPop: sm2.state != Sm2QuizState.active,
       onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return; // already popped (e.g. finished/error state)
+        if (didPop) return; 
         final leave = await _confirmExit(sm2);
         if (leave && context.mounted) {
           Navigator.of(context).pop();
@@ -70,9 +78,9 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Body
-  // -----------------------------------------------------------------------
+  
+  
+  
 
   Widget _body(Sm2QuizProvider sm2) {
     switch (sm2.state) {
@@ -88,18 +96,110 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
       case Sm2QuizState.error:
         return _error(sm2);
       case Sm2QuizState.idle:
-        return Center(
-          child: ElevatedButton(
-            onPressed: sm2.start,
-            child: const Text("Start SM2 Review"),
+        final progress = context.watch<ProgressProvider>();
+        final wordProvider = context.watch<WordProvider>();
+        final now = DateTime.now();
+        final dueWordsPreview = wordProvider.words
+            .where((w) {
+              if ((w.status ?? '') == 'pending') return false;
+              if (w.nextReviewDate == null) return true;
+              try {
+                return DateTime.parse(w.nextReviewDate!).isBefore(now);
+              } catch (_) {
+                return false;
+              }
+            })
+            .take(5)
+            .toList();
+
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Icon(Icons.replay_circle_filled_rounded,
+                  size: 64, color: AppColors.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Ready for review',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                progress.dueReviewCount > 0
+                    ? 'You have ${progress.dueReviewCount} words due for SM2 review.'
+                    : 'No words are due for review yet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textLight),
+              ),
+              const SizedBox(height: 20),
+              if (dueWordsPreview.isNotEmpty) ...[
+                Text(
+                  'Due words',
+                  style: TextStyle(
+                    color: AppColors.textDark,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...dueWordsPreview.map((word) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              word.text,
+                              style: TextStyle(
+                                color: AppColors.textDark,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                const SizedBox(height: 20),
+              ],
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                ),
+                onPressed: () {
+                  _clearFillControllers();
+                  sm2.start();
+                },
+                child: const Text(
+                  "Start SM2 Review",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
         );
     }
   }
 
-  // -----------------------------------------------------------------------
-  // Active quiz
-  // -----------------------------------------------------------------------
+  
+  
+  
 
   Widget _active(Sm2QuizProvider sm2) {
     final question = sm2.currentQuestion;
@@ -245,44 +345,267 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Finished / Error
-  // -----------------------------------------------------------------------
+  
+  
+  
 
   Widget _finished(Sm2QuizProvider sm2) {
     final result = sm2.result ?? {};
+    final score = result['score'] ?? 0;
+    final total = result['total'] ?? 0;
+    final dailyStreak = result['dailyStreak'] ?? 0;
+    final streakCount = result['countsForStreak'] ?? 0;
+    final results = (result['results'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        [];
+    final wrongItems = _extractWrongItems(results);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, color: AppColors.success, size: 64),
-            const SizedBox(height: 16),
-            Text(
-              "${result['score'] ?? 0}/${result['total'] ?? 0}",
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle, color: AppColors.success, size: 64),
+              const SizedBox(height: 16),
+              Text(
+                "SM2 Review Complete",
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text("Daily streak: ${result['dailyStreak'] ?? 0}"),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                if (context.mounted) {
-                  context.read<ProgressProvider>().refresh();
-                  context.read<WordProvider>().loadWords();
-                }
-                sm2.reset();
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text("Done"),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                "Score: $score of $total",
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Daily streak: $dailyStreak",
+                style: TextStyle(color: AppColors.textLight),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Streak progress: $streakCount",
+                style: TextStyle(color: AppColors.textLight),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    _resultDetailRow(label: 'Mode', value: 'SM2 Review'),
+                    const SizedBox(height: 8),
+                    _resultDetailRow(label: 'Questions', value: '$total'),
+                    const SizedBox(height: 8),
+                    _resultDetailRow(label: 'Score', value: '$score'),
+                    const SizedBox(height: 8),
+                    _resultDetailRow(
+                      label: 'Updated words',
+                      value: '${results.length}',
+                    ),
+                  ],
+                ),
+              ),
+              if (results.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                _resultSummarySection(results),
+              ],
+              if (wrongItems.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                _learningInsightsSection(wrongItems),
+              ],
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                ),
+                onPressed: () async {
+                  if (context.mounted) {
+                    context.read<ProgressProvider>().refresh();
+                    await context
+                        .read<WordProvider>()
+                        .loadWords(forceRefresh: true);
+                  }
+                  if (!mounted) return;
+                  sm2.reset();
+                  Navigator.pop(context);
+                },
+                child: const Text(
+                  "Done",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ], 
+          ), 
+        ), 
+      ), 
+    ); 
+  }
+
+  List<Map<String, dynamic>> _extractWrongItems(dynamic rawResults) {
+    final results = rawResults is List ? rawResults : [];
+    return results
+        .whereType<Map<String, dynamic>>()
+        .where((item) => (item['errorType']?.toString() ?? 'none') != 'none')
+        .toList();
+  }
+
+  Widget _learningInsightsSection(List<Map<String, dynamic>> wrongItems) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Learning insights',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
+        const SizedBox(height: 12),
+        ...wrongItems.map((item) {
+          final word = item['word']?.toString() ?? 'Unknown word';
+          final insight = item['learningInsight']?.toString() ?? '';
+          final action = item['smartAction']?.toString();
+          final sm2 = item['sm2'] as Map<String, dynamic>?;
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.primaryLight),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  word,
+                  style: TextStyle(
+                    color: AppColors.textDark,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (insight.isNotEmpty)
+                  Text(
+                    insight,
+                    style: TextStyle(color: AppColors.textLight),
+                  ),
+                if (action != null && action.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Recommendation: $action',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (sm2 != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'SM2 update',
+                    style: TextStyle(
+                      color: AppColors.textDark,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _resultDetailRow(
+                    label: 'Next review',
+                    value: sm2['next_review_label']?.toString() ?? '-',
+                  ),
+                  if (sm2['new_interval_days'] != null) ...[
+                    const SizedBox(height: 6),
+                    _resultDetailRow(
+                      label: 'Interval',
+                      value: '${sm2['new_interval_days']}',
+                    ),
+                  ],
+                  if (sm2['new_ease_factor'] != null) ...[
+                    const SizedBox(height: 6),
+                    _resultDetailRow(
+                      label: 'Ease factor',
+                      value: '${sm2['new_ease_factor']}',
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _resultDetailRow({required String label, required String value}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: AppColors.textLight)),
+        Text(value,
+            style: TextStyle(
+                color: AppColors.textDark, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _resultSummarySection(List<Map<String, dynamic>> results) {
+    final correctCount =
+        results.where((item) => item['isCorrect'] == true).length;
+    final incorrectCount = results.length - correctCount;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'SM2 result details',
+          style: TextStyle(
+            color: AppColors.textDark,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              _resultDetailRow(
+                  label: 'Total reviewed', value: '${results.length}'),
+              const SizedBox(height: 8),
+              _resultDetailRow(
+                  label: 'Correct answers', value: '$correctCount'),
+              const SizedBox(height: 8),
+              _resultDetailRow(
+                  label: 'Incorrect answers', value: '$incorrectCount'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -299,7 +622,10 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: sm2.start,
+              onPressed: () {
+                _clearFillControllers();
+                sm2.start();
+              },
               child: const Text("Try Again"),
             ),
           ],
@@ -308,9 +634,9 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Navigation helpers
-  // -----------------------------------------------------------------------
+  
+  
+  
 
   Future<void> _continue(Sm2QuizProvider sm2) async {
     if (!sm2.currentIsAnswered && !sm2.currentIsSkipped) {
@@ -323,10 +649,12 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     }
     if (sm2.isLastQuestion) {
       if (sm2.hasUnansweredQuestions()) {
-        final submit = await _showWarning(
-          "Some questions are unanswered. Submit them as wrong?",
-        );
-        if (!submit) return;
+        final action = await _showUnansweredDialog();
+        if (action == _UnansweredAction.cancel) return;
+        if (action == _UnansweredAction.review) {
+          sm2.goToFirstUnanswered();
+          return;
+        }
       }
       await sm2.submit(confirmEmptyAsWrong: true);
     } else {
@@ -341,7 +669,12 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
     );
     if (!skip) return;
     sm2.markCurrentSkipped();
-    await _continue(sm2);
+    
+    if (sm2.isLastQuestion) {
+      await sm2.submit(confirmEmptyAsWrong: true);
+    } else {
+      sm2.next();
+    }
   }
 
   Future<bool> _confirmExit(Sm2QuizProvider sm2) async {
@@ -378,5 +711,35 @@ class _Sm2ReviewQuizScreenState extends State<Sm2ReviewQuizScreen> {
           ),
         ) ??
         false;
+  }
+
+  Future<_UnansweredAction> _showUnansweredDialog() async {
+    return await showDialog<_UnansweredAction>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Unanswered questions'),
+            content: const Text(
+              'Some questions are unanswered. Submit them as wrong, or review unanswered questions first.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () =>
+                    Navigator.pop(context, _UnansweredAction.cancel),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.pop(context, _UnansweredAction.review),
+                child: const Text('Review unanswered'),
+              ),
+              ElevatedButton(
+                onPressed: () =>
+                    Navigator.pop(context, _UnansweredAction.submit),
+                child: const Text('Submit as wrong'),
+              ),
+            ],
+          ),
+        ) ??
+        _UnansweredAction.cancel;
   }
 }

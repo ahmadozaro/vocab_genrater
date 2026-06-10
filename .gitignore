@@ -1,4 +1,4 @@
-# Python
+
 __pycache__/
 *.pyc
 *.pyo
@@ -11,15 +11,15 @@ htmlcov/
 .env
 .venv/
 
-# IDE
+
 .idea/
 .vscode/
 
-# OS
+
 .DS_Store
 Thumbs.db
 
-# Flutter/Dart
+
 build/
 .dart_tool/
 .pub-cache/

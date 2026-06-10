@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/word.dart';
 import '../models/quiz.dart';
 import '../models/notification.dart';
 
-// ---------------------------------------------------------------------------
-// Custom exceptions
-// ---------------------------------------------------------------------------
+
+
+
 
 class UnauthorizedException implements Exception {
   final String message;
@@ -32,9 +32,9 @@ class NetworkException implements Exception {
   String toString() => message;
 }
 
-// ---------------------------------------------------------------------------
-// ApiService
-// ---------------------------------------------------------------------------
+
+
+
 
 class ApiService {
   static const String _configuredBaseUrl =
@@ -49,17 +49,18 @@ class ApiService {
     return 'http://localhost:8000';
   }
 
-  // -------------------------------------------------------------------------
-  // Token management
-  // -------------------------------------------------------------------------
+  
+  
+  
+
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage();
 
   static String? _cachedToken;
   static String? _cachedRefreshToken;
 
   static Future<void> saveToken(String token) async {
     _cachedToken = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
+    await _secureStorage.write(key: 'auth_token', value: token);
   }
 
   static Future<void> saveAuthTokens({
@@ -70,33 +71,32 @@ class ApiService {
     if (refreshToken != null && refreshToken.isNotEmpty) {
       _cachedRefreshToken = refreshToken;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', accessToken);
+    await _secureStorage.write(key: 'auth_token', value: accessToken);
     if (refreshToken != null && refreshToken.isNotEmpty) {
-      await prefs.setString('refresh_token', refreshToken);
+      await _secureStorage.write(
+        key: 'refresh_token',
+        value: refreshToken,
+      );
     }
   }
 
   static Future<String?> getToken() async {
     if (_cachedToken != null) return _cachedToken;
-    final prefs = await SharedPreferences.getInstance();
-    _cachedToken = prefs.getString('auth_token');
+    _cachedToken = await _secureStorage.read(key: 'auth_token');
     return _cachedToken;
   }
 
   static Future<String?> getRefreshToken() async {
     if (_cachedRefreshToken != null) return _cachedRefreshToken;
-    final prefs = await SharedPreferences.getInstance();
-    _cachedRefreshToken = prefs.getString('refresh_token');
+    _cachedRefreshToken = await _secureStorage.read(key: 'refresh_token');
     return _cachedRefreshToken;
   }
 
   static Future<void> clearToken() async {
     _cachedToken = null;
     _cachedRefreshToken = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('refresh_token');
+    await _secureStorage.delete(key: 'auth_token');
+    await _secureStorage.delete(key: 'refresh_token');
   }
 
   static Future<void> logout() async {
@@ -110,16 +110,16 @@ class ApiService {
         );
       }
     } catch (_) {
-      // Local logout must still succeed even when the network is unavailable.
+      
     } finally {
       await clearToken();
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Unified headers builder — single source of truth
-  // Previously several methods built headers manually; now all go through here.
-  // -------------------------------------------------------------------------
+  
+  
+  
+  
 
   static Future<Map<String, String>> _authHeaders() async {
     final token = await getToken();
@@ -129,9 +129,9 @@ class ApiService {
     };
   }
 
-  // -------------------------------------------------------------------------
-  // Response decoding
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static dynamic _decodeBody(http.Response res) {
     final body = utf8.decode(res.bodyBytes);
@@ -139,9 +139,9 @@ class ApiService {
     return jsonDecode(body);
   }
 
-  // -------------------------------------------------------------------------
-  // Token refresh + retry
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<bool> _refreshAccessToken() async {
     final refreshToken = await getRefreshToken();
@@ -174,9 +174,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // -------------------------------------------------------------------------
-  // Auth endpoints
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<Map<String, dynamic>> register({
     required String name,
@@ -242,11 +242,11 @@ class ApiService {
         'new_password': newPassword,
       }),
     );
-    _handle(res); // throws on error
+    _handle(res); 
   }
 
-  /// Verify email OTP.
-  /// Now uses the unified _authHeaders() so the token (if available) is sent.
+  
+  
   static Future<void> verifyEmail({
     required String email,
     required String code,
@@ -257,7 +257,7 @@ class ApiService {
       headers: headers,
       body: jsonEncode({'email': email, 'code': code}),
     );
-    final data = _handle(res); // throws on error
+    final data = _handle(res); 
     final token = data is Map ? data['access_token'] as String? : null;
     if (token != null && token.isNotEmpty) {
       await saveAuthTokens(
@@ -267,8 +267,8 @@ class ApiService {
     }
   }
 
-  /// Resend verification code.
-  /// Now uses the unified _authHeaders() — no more manual header building.
+  
+  
   static Future<Map<String, dynamic>> resendVerificationCode({
     required String email,
   }) async {
@@ -281,9 +281,9 @@ class ApiService {
     return Map<String, dynamic>.from(_handle(res));
   }
 
-  // -------------------------------------------------------------------------
-  // User profile
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<Map<String, dynamic>> getProfile() async {
     final headers = await _authHeaders();
@@ -325,7 +325,21 @@ class ApiService {
         'new_password': newPassword,
       }),
     );
-    _handle(res); // throws on error with detail message
+    _handle(res); 
+  }
+
+  static Future<Map<String, dynamic>> deleteAccount({
+    required String password,
+  }) async {
+    final headers = await _authHeaders();
+    final res = await http.delete(
+      Uri.parse('$baseUrl/users/me'),
+      headers: headers,
+      body: jsonEncode({
+        'password': password,
+      }),
+    );
+    return Map<String, dynamic>.from(_handle(res));
   }
 
   static Future<Map<String, dynamic>> updateLevel(String level) async {
@@ -350,13 +364,14 @@ class ApiService {
     return _handle(res);
   }
 
-  // -------------------------------------------------------------------------
-  // Words
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<WordModel> createWord({
     required String text,
     String? arabicMeaning,
+    String? definition,
     String? audio,
     String? source,
     List<String> examples = const [],
@@ -368,6 +383,7 @@ class ApiService {
       body: jsonEncode({
         'text': text,
         'arabicMeaning': arabicMeaning,
+        'definition': definition,
         'audio': audio,
         'source': source,
         'examples': examples,
@@ -399,7 +415,7 @@ class ApiService {
         http.get(Uri.parse('$baseUrl/words'), headers: await _authHeaders());
     final res = await send();
     final data = await _handleAuthed(res, send);
-    // Backend now always returns a dict; handle both for safety during migration
+    
     if (data is List) {
       return data.map((e) => WordModel.fromJson(e)).toList();
     }
@@ -407,7 +423,7 @@ class ApiService {
     return list.map((e) => WordModel.fromJson(e)).toList();
   }
 
-  /// Backend always returns { words, total, page, pages } now (unified format).
+  
   static Future<Map<String, dynamic>> getWordsPage({
     int page = 1,
     int limit = 50,
@@ -429,16 +445,6 @@ class ApiService {
     final res = await send();
     final data = await _handleAuthed(res, send);
 
-    // Defensive: handle bare list in case of an older backend version
-    if (data is List) {
-      return {
-        'words': data.map((e) => WordModel.fromJson(e)).toList(),
-        'total': data.length,
-        'page': 1,
-        'pages': 1,
-      };
-    }
-
     final map = Map<String, dynamic>.from(data as Map);
     return {
       'words': (map['words'] as List? ?? [])
@@ -451,12 +457,14 @@ class ApiService {
   }
 
   static Future<WordModel> getWord(int wordId) async {
-    final headers = await _authHeaders();
-    final res = await http.get(
-      Uri.parse('$baseUrl/words/$wordId'),
-      headers: headers,
-    );
-    return WordModel.fromJson(Map<String, dynamic>.from(_handle(res)));
+    Future<http.Response> send() async => http.get(
+          Uri.parse('$baseUrl/words/$wordId'),
+          headers: await _authHeaders(),
+        );
+
+    final res = await send();
+    final data = await _handleAuthed(res, send);
+    return WordModel.fromJson(Map<String, dynamic>.from(data));
   }
 
   static Future<void> deleteWord(int wordId) async {
@@ -477,9 +485,9 @@ class ApiService {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Quiz
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<QuizModel> createQuiz() async {
     final headers = await _authHeaders();
@@ -519,9 +527,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // -------------------------------------------------------------------------
-  // AI Suggestions
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<List<Map<String, dynamic>>> suggestWords({
     required String level,
@@ -543,9 +551,9 @@ class ApiService {
     return list.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  // -------------------------------------------------------------------------
-  // SM2 Review Quiz
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<Map<String, dynamic>> startSm2Quiz() async {
     final headers = await _authHeaders();
@@ -591,9 +599,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // -------------------------------------------------------------------------
-  // Progress
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<Map<String, dynamic>> getProgress() async {
     final headers = await _authHeaders();
@@ -604,9 +612,9 @@ class ApiService {
     return _handle(res);
   }
 
-  // -------------------------------------------------------------------------
-  // Notifications
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static Future<List<AppNotification>> getNotifications() async {
     final headers = await _authHeaders();
@@ -654,9 +662,9 @@ class ApiService {
     return Map<String, dynamic>.from(_handle(res));
   }
 
-  // -------------------------------------------------------------------------
-  // Centralised error handler
-  // -------------------------------------------------------------------------
+  
+  
+  
 
   static dynamic _handle(http.Response res) {
     dynamic decoded;

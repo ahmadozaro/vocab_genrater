@@ -12,6 +12,8 @@ class RegisterFormStep extends StatelessWidget {
   final bool obscurePassword;
   final bool obscureConfirm;
   final bool isLoading;
+  final bool isRateLimited;
+  final int rateLimitSecondsRemaining;
   final String? errorMessage;
   final VoidCallback onTogglePassword;
   final VoidCallback onToggleConfirm;
@@ -29,6 +31,8 @@ class RegisterFormStep extends StatelessWidget {
     required this.obscurePassword,
     required this.obscureConfirm,
     required this.isLoading,
+    required this.isRateLimited,
+    required this.rateLimitSecondsRemaining,
     required this.errorMessage,
     required this.onTogglePassword,
     required this.onToggleConfirm,
@@ -127,7 +131,7 @@ class RegisterFormStep extends StatelessWidget {
                   ),
                   elevation: 0,
                 ),
-                onPressed: isLoading ? null : onSubmit,
+                onPressed: isLoading || isRateLimited ? null : onSubmit,
                 child: isLoading
                     ? const SizedBox(
                         width: 22,
@@ -154,6 +158,13 @@ class RegisterFormStep extends StatelessWidget {
                       ),
               ),
             ),
+            if (isRateLimited) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Too many requests. Try again in $rateLimitSecondsRemaining seconds.',
+                style: const TextStyle(color: Colors.red, fontSize: 14),
+              ),
+            ],
             const SizedBox(height: 16),
             Center(
               child: TextButton(

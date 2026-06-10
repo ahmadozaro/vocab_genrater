@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:ai/core/theme/colors.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 class SettingsLogic {
-  /// عرض SnackBar نجاح أو فشل
+  
   static void showSnack(
     BuildContext context, {
     required bool ok,

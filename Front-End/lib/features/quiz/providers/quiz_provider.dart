@@ -11,6 +11,7 @@ enum QuizState { idle, loading, active, finished, error }
 class QuizProvider extends ChangeNotifier {
   static const int questionSeconds = 30;
   static const String _storageKey = 'active_quiz_session';
+  static const String _startedAtKey = 'question_started_at';
 
   QuizState _state = QuizState.idle;
   QuizModel? _currentQuiz;
@@ -84,8 +85,9 @@ class QuizProvider extends ChangeNotifier {
       _userAnswers
         ..clear()
         ..addAll(List<String>.from(json['answers'] ?? []));
-      _selectedAnswer =
-          _currentIndex < _userAnswers.length ? _userAnswers[_currentIndex] : null;
+      _selectedAnswer = _currentIndex < _userAnswers.length
+          ? _userAnswers[_currentIndex]
+          : null;
       _isAnswered = _currentIndex < _userAnswers.length;
       _resultDetails = null;
       _state = QuizState.active;
@@ -94,7 +96,22 @@ class QuizProvider extends ChangeNotifier {
           _advanceAfterFeedback();
         });
       } else {
-        _startTimer();
+        final prefs = await SharedPreferences.getInstance();
+        final startedAt = prefs.getInt(_startedAtKey);
+        final elapsed = startedAt != null
+            ? (DateTime.now().millisecondsSinceEpoch - startedAt) ~/ 1000
+            : 0;
+        final initialRemaining = questionSeconds - elapsed;
+        if (initialRemaining <= 0) {
+          _remainingSeconds = 0;
+          _lockAnswer('');
+        } else {
+          _questionStartedAt = DateTime.now().subtract(
+            Duration(seconds: elapsed),
+          );
+          _startTimer(initialRemainingSeconds: initialRemaining);
+          await _saveSession();
+        }
       }
       notifyListeners();
     } catch (_) {}
@@ -125,7 +142,9 @@ class QuizProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  void reset() {
+  Future<void> reset() async {
+    
+    await _clearSavedSession();
     _cancelTimers();
     _state = QuizState.idle;
     _currentQuiz = null;
@@ -137,10 +156,11 @@ class QuizProvider extends ChangeNotifier {
     _resultDetails = null;
     _remainingSeconds = questionSeconds;
     _userAnswers.clear();
-    _clearSavedSession();
     notifyListeners();
-    loadHistory();
+    await loadHistory();
   }
+
+  DateTime? _questionStartedAt;
 
   Future<void> _start(Future<QuizModel> Function() create) async {
     _cancelTimers();
@@ -157,6 +177,7 @@ class QuizProvider extends ChangeNotifier {
       _userAnswers.clear();
       _state = QuizState.active;
       _remainingSeconds = questionSeconds;
+      _questionStartedAt = DateTime.now();
       _startTimer();
       await _saveSession();
     } catch (e) {
@@ -197,6 +218,7 @@ class QuizProvider extends ChangeNotifier {
       _selectedAnswer = null;
       _isAnswered = false;
       _remainingSeconds = questionSeconds;
+      _questionStartedAt = DateTime.now();
       _startTimer();
       await _saveSession();
       notifyListeners();
@@ -224,9 +246,9 @@ class QuizProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _startTimer() {
+  void _startTimer({int? initialRemainingSeconds}) {
     _questionTimer?.cancel();
-    _remainingSeconds = questionSeconds;
+    _remainingSeconds = initialRemainingSeconds ?? questionSeconds;
     _questionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_state != QuizState.active || _isAnswered) {
         timer.cancel();
@@ -293,6 +315,14 @@ class QuizProvider extends ChangeNotifier {
           'answers': _userAnswers,
         }),
       );
+      if (_questionStartedAt != null) {
+        await prefs.setInt(
+          _startedAtKey,
+          _questionStartedAt!.millisecondsSinceEpoch,
+        );
+      } else {
+        await prefs.remove(_startedAtKey);
+      }
     } catch (_) {}
   }
 
@@ -300,6 +330,7 @@ class QuizProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_storageKey);
+      await prefs.remove(_startedAtKey);
     } catch (_) {}
   }
 
@@ -310,7 +341,8 @@ class QuizProvider extends ChangeNotifier {
     _advanceTimer = null;
   }
 
-  String _normalize(String value) => value.trim().toLowerCase().split(RegExp(r'\s+')).join(' ');
+  String _normalize(String value) =>
+      value.trim().toLowerCase().split(RegExp(r'\s+')).join(' ');
 
   String _gradeFor(double percentage) {
     if (percentage >= 90) return 'Excellent';

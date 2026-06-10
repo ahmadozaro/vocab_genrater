@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:ai/core/models/notification.dart';
 import 'package:ai/core/services/api.dart';
@@ -12,6 +14,17 @@ Future<void> initLocalNotifications() async {
   const ios = DarwinInitializationSettings();
   const settings = InitializationSettings(android: android, iOS: ios);
   await _localNotif.initialize(settings);
+
+  final androidPlugin = _localNotif.resolvePlatformSpecificImplementation<
+      AndroidFlutterLocalNotificationsPlugin>();
+  await androidPlugin?.createNotificationChannel(
+    const AndroidNotificationChannel(
+      'main_channel',
+      'Main Notifications',
+      description: 'General app notifications',
+      importance: Importance.high,
+    ),
+  );
 }
 
 class NotificationProvider extends ChangeNotifier {
@@ -20,6 +33,30 @@ class NotificationProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _hasLoaded = false;
   Set<int> _lastSeenIds = {};
+  Timer? _syncTimer;
+  bool _isSyncing = false;
+  DateTime? _lastSyncTime;
+
+  NotificationProvider() {
+    _schedulePeriodicSync();
+  }
+
+  void _schedulePeriodicSync() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      _syncWhenReady();
+    });
+  }
+
+  Future<void> _syncWhenReady() async {
+    if (_isLoading || _isSyncing) return;
+    _isSyncing = true;
+    try {
+      await sync();
+    } finally {
+      _isSyncing = false;
+    }
+  }
 
   List<AppNotification> get notifications => _notifications;
   int get unreadCount => _unreadCount;
@@ -47,7 +84,14 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> sync() async {
-    if (_isLoading) return;
+    final now = DateTime.now();
+    if (_lastSyncTime != null &&
+        now.difference(_lastSyncTime!) < Duration(minutes: 5)) {
+      return;
+    }
+    if (_isLoading || _isSyncing) return;
+    _lastSyncTime = now;
+    _isSyncing = true;
     try {
       final newNotifs = await ApiService.syncNotifications();
       final previousIds = Set<int>.from(_notifications.map((n) => n.id));
@@ -58,9 +102,13 @@ class NotificationProvider extends ChangeNotifier {
       final countResult = await ApiService.getUnreadNotificationCount();
       _unreadCount = (countResult as Map)['unreadCount'] ?? 0;
 
-      _showLocalForNew(previousIds, newNotifs);
-    } catch (_) {}
-    notifyListeners();
+      await _showLocalForNew(previousIds, newNotifs);
+    } catch (_) {
+      
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
   }
 
   void _trackSeenIds() {
@@ -91,7 +139,7 @@ class NotificationProvider extends ChangeNotifier {
     const ios = DarwinNotificationDetails();
     const details = NotificationDetails(android: android, iOS: ios);
     await _localNotif.show(
-      0,
+      DateTime.now().microsecondsSinceEpoch,
       'WordUp 📚',
       'Time to practice your vocabulary!',
       details,
@@ -109,7 +157,7 @@ class NotificationProvider extends ChangeNotifier {
     const ios = DarwinNotificationDetails();
     const details = NotificationDetails(android: android, iOS: ios);
     await _localNotif.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      DateTime.now().microsecondsSinceEpoch,
       title,
       message,
       details,
@@ -132,5 +180,11 @@ class NotificationProvider extends ChangeNotifier {
     } catch (_) {
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
   }
 }

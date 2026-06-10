@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import Column, DateTime, Integer, String, inspect, MetaData, Table, text
 
 from app import models
 from app.core.database import Base, engine
@@ -19,7 +20,6 @@ from app.routers import (
 )
 from app.core.config import settings
 
-
 app = FastAPI(title="AI VocabGen API")
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,6 @@ if IS_PRODUCTION:
         if origin.strip()
     ]
 else:
-    # ✅ في Development نسمح بكل الأصول عشان Flutter يشتغل
     allowed_origins = ["*"]
 
 app.add_middleware(
@@ -80,56 +79,33 @@ async def security_and_logging_middleware(request: Request, call_next):
     )
     return response
 
+
 Base.metadata.create_all(bind=engine)
 
 with engine.begin() as connection:
-    columns = {
-        row[1]
-        for row in connection.exec_driver_sql("PRAGMA table_info(users)").fetchall()
-    }
-    if "email_verification_code" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN email_verification_code VARCHAR"
-        )
-    if "is_email_verified" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN is_email_verified INTEGER DEFAULT 1 NOT NULL"
-        )
-    if "reset_code_expires_at" not in columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE users ADD COLUMN reset_code_expires_at DATETIME"
-        )
+    inspector = inspect(connection)
+    metadata = MetaData()
 
-    word_columns = {
-        row[1]
-        for row in connection.exec_driver_sql("PRAGMA table_info(user_words)").fetchall()
-    }
-    if "is_active" not in word_columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE user_words ADD COLUMN is_active INTEGER DEFAULT 1 NOT NULL"
-        )
+    def _ensure_column(table_name: str, column: Column):
+        existing = {col["name"] for col in inspector.get_columns(table_name)}
+        if column.name not in existing:
+            col_type = column.type.compile(engine.dialect)
+            nullable = "" if column.nullable else " NOT NULL"
+            default = ""
+            if column.server_default is not None:
+                default = f" DEFAULT {column.server_default.arg}"
+            connection.execute(
+                text(f'ALTER TABLE "{table_name}" ADD COLUMN "{column.name}" {col_type}{default}{nullable}')
+            )
 
-    notif_columns = {
-        row[1]
-        for row in connection.exec_driver_sql("PRAGMA table_info(notifications)").fetchall()
-    }
-    if "title" not in notif_columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE notifications ADD COLUMN title VARCHAR NOT NULL DEFAULT 'Notification'"
-        )
-    if "type" not in notif_columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE notifications ADD COLUMN type VARCHAR"
-        )
-
-    q_columns = {
-        row[1]
-        for row in connection.exec_driver_sql("PRAGMA table_info(normal_quiz_items)").fetchall()
-    }
-    if "question_type" not in q_columns:
-        connection.exec_driver_sql(
-            "ALTER TABLE normal_quiz_items ADD COLUMN question_type VARCHAR DEFAULT 'multiple_choice'"
-        )
+    _ensure_column("users", Column("email_verification_code", String(), nullable=True))
+    _ensure_column("users", Column("email_verification_attempts", Integer(), server_default=text("0"), nullable=False))
+    _ensure_column("users", Column("is_email_verified", Integer(), server_default=text("1"), nullable=False))
+    _ensure_column("users", Column("reset_code_expires_at", DateTime(), nullable=True))
+    _ensure_column("user_words", Column("is_active", Integer(), default=1, nullable=False))
+    _ensure_column("notifications", Column("title", String(), server_default=text("'Notification'"), nullable=False))
+    _ensure_column("notifications", Column("type", String(), nullable=True))
+    _ensure_column("normal_quiz_items", Column("question_type", String(), nullable=False, default="multiple_choice"))
 
 app.include_router(user_router.router)
 app.include_router(word_router.router)

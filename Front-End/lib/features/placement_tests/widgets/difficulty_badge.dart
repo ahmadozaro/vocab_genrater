@@ -8,7 +8,7 @@ class DifficultyBadge extends StatelessWidget {
   Color get _color {
     if (difficulty == 'A1' || difficulty == 'A2') return AppColors.success;
     if (difficulty == 'B1' || difficulty == 'B2') return AppColors.warning;
-    return AppColors.error; // لـ C1 وما فوق
+    return AppColors.error; 
   }
 
   @override

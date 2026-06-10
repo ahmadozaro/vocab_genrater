@@ -30,16 +30,16 @@ class LogoutHelper {
               ),
             ),
             onPressed: () async {
-              // 1. أغلق الديالوج أولاً
+              
               Navigator.pop(dialogContext);
 
-              // 2. تنفيذ الـ logout
-              // ✅ الـ auth.logout() يُعيّن _isLoggedIn = false
-              // → الـ _AppRouter في main.dart سيعيد البناء تلقائياً
-              // → يعرض _AuthFlow مع PageController جديد صحيح
+              
+              
+              
+              
               await auth.logout();
 
-              // ✅ لا نحتاج Navigator هنا — الـ Consumer في _AppRouter يتولى الأمر
+              
             },
             child: const Text("Log Out", style: TextStyle(color: Colors.white)),
           ),

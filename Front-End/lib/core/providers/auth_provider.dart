@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:ai/core/models/interest.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,6 +11,10 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isInitializing = true;
   bool _isEmailVerified = false;
+  bool _isOffline = false;
+  bool _isRateLimited = false;
+  DateTime? _rateLimitUntil;
+  Timer? _rateLimitTimer;
 
   bool _needsInterests = false;
 
@@ -26,6 +32,15 @@ class AuthProvider extends ChangeNotifier {
   bool get isInitializing => _isInitializing;
   bool get isEmailVerified => _isEmailVerified;
   bool get needsInterests => _needsInterests;
+  bool get isOffline => _isOffline;
+  bool get isRateLimited => _isRateLimited;
+  DateTime? get rateLimitUntil => _rateLimitUntil;
+  int get rateLimitSecondsRemaining {
+    if (_rateLimitUntil == null) return 0;
+    final seconds = _rateLimitUntil!.difference(DateTime.now()).inSeconds;
+    return seconds > 0 ? seconds : 0;
+  }
+
   String? get errorMessage => _errorMessage;
   String? get userName => _userName;
   String? get userEmail => _userEmail;
@@ -54,9 +69,8 @@ class AuthProvider extends ChangeNotifier {
 
         final saved = prefs.getString('userInterests') ?? '';
         final labels = saved.isEmpty ? <String>[] : saved.split(',');
-        _userInterestModels = labels
-            .map((l) => labelToModel(l.trim()))
-            .toList();
+        _userInterestModels =
+            labels.map((l) => labelToModel(l.trim())).toList();
 
         await _refreshProfile();
       }
@@ -66,6 +80,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _refreshProfile() async {
+    _isOffline = false;
     try {
       final data = await ApiService.getProfile();
       final prefs = await SharedPreferences.getInstance();
@@ -79,27 +94,38 @@ class AuthProvider extends ChangeNotifier {
         await prefs.setString('userName', _userName ?? '');
         await prefs.setString('userEmail', _userEmail ?? '');
         await prefs.setString('userLevel', _userLevel!);
+        
+        
+        
+        final skippedInterests = prefs.getBool('skippedInterests') ?? false;
+        _needsInterests = _userInterestModels.isEmpty && !skippedInterests;
         notifyListeners();
         return;
       }
       await _applyProfile(data);
       _needsInterests = _userInterestModels.isEmpty && !skippedInterests;
-    } catch (_) {
-      await ApiService.clearToken();
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('auth_token');
-      await prefs.remove('userName');
-      await prefs.remove('userEmail');
-      await prefs.remove('userLevel');
-      await prefs.remove('userInterests');
-      _isLoggedIn = false;
-      _hasTakenTest = false;
-      _isEmailVerified = false;
-      _needsInterests = false;
-      _userName = null;
-      _userEmail = null;
-      _userLevel = null;
-      _userInterestModels = [];
+    } catch (e) {
+      if (e is UnauthorizedException) {
+        await ApiService.clearToken();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('auth_token');
+        await prefs.remove('userName');
+        await prefs.remove('userEmail');
+        await prefs.remove('userLevel');
+        await prefs.remove('userInterests');
+        _isLoggedIn = false;
+        _hasTakenTest = false;
+        _isEmailVerified = false;
+        _needsInterests = false;
+        _userName = null;
+        _userEmail = null;
+        _userLevel = null;
+        _userInterestModels = [];
+      } else {
+        _isOffline = true;
+        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        _isLoggedIn = true;
+      }
       notifyListeners();
     }
   }
@@ -128,6 +154,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> login(String email, String password) async {
+    if (_isRateLimited &&
+        _rateLimitUntil != null &&
+        _rateLimitUntil!.isAfter(DateTime.now())) {
+      _errorMessage =
+          'Too many requests. Please wait $rateLimitSecondsRemaining seconds.';
+      notifyListeners();
+      return false;
+    }
     if (email.trim().isEmpty || password.isEmpty) {
       _errorMessage = 'Please fill in all fields';
       notifyListeners();
@@ -147,11 +181,16 @@ class AuthProvider extends ChangeNotifier {
         await _applyProfile(user);
       }
 
+      _clearRateLimit();
       _isLoggedIn = true;
       _needsInterests = _userInterestModels.isEmpty;
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      final message = e.toString().replaceAll('Exception: ', '');
+      _errorMessage = message;
+      if (message.contains('Too many requests')) {
+        _startRateLimit(const Duration(seconds: 30));
+      }
       notifyListeners();
       return false;
     } finally {
@@ -166,6 +205,14 @@ class AuthProvider extends ChangeNotifier {
     String confirm, {
     List<InterestModel>? initialInterests,
   }) async {
+    if (_isRateLimited &&
+        _rateLimitUntil != null &&
+        _rateLimitUntil!.isAfter(DateTime.now())) {
+      _errorMessage =
+          'Too many requests. Please wait $rateLimitSecondsRemaining seconds.';
+      notifyListeners();
+      return false;
+    }
     if (name.trim().isEmpty || email.trim().isEmpty || password.isEmpty) {
       _errorMessage = 'Please fill in all fields';
       notifyListeners();
@@ -195,10 +242,15 @@ class AuthProvider extends ChangeNotifier {
       _isEmailVerified = false;
       _isLoggedIn = false;
       _needsInterests = false;
+      _clearRateLimit();
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      final message = e.toString().replaceAll('Exception: ', '');
+      _errorMessage = message;
+      if (message.contains('Too many requests')) {
+        _startRateLimit(const Duration(seconds: 30));
+      }
       notifyListeners();
       return false;
     } finally {
@@ -265,16 +317,29 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    if (_isRateLimited &&
+        _rateLimitUntil != null &&
+        _rateLimitUntil!.isAfter(DateTime.now())) {
+      _errorMessage =
+          'Too many requests. Please wait $rateLimitSecondsRemaining seconds.';
+      notifyListeners();
+      return false;
+    }
     _setLoading(true);
     _errorMessage = null;
     _lastResetDebugCode = null;
     try {
       final data = await ApiService.requestResetCode(email.trim());
       _lastResetDebugCode = data['debug_code']?.toString();
+      _clearRateLimit();
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      final message = e.toString().replaceAll('Exception: ', '');
+      _errorMessage = message;
+      if (message.contains('Too many requests')) {
+        _startRateLimit(const Duration(seconds: 30));
+      }
       notifyListeners();
       return false;
     } finally {
@@ -297,6 +362,14 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    if (_isRateLimited &&
+        _rateLimitUntil != null &&
+        _rateLimitUntil!.isAfter(DateTime.now())) {
+      _errorMessage =
+          'Too many requests. Please wait $rateLimitSecondsRemaining seconds.';
+      notifyListeners();
+      return false;
+    }
     _setLoading(true);
     _errorMessage = null;
     try {
@@ -305,10 +378,15 @@ class AuthProvider extends ChangeNotifier {
         code: code.trim(),
         newPassword: newPassword,
       );
+      _clearRateLimit();
       notifyListeners();
       return true;
     } catch (e) {
-      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      final message = e.toString().replaceAll('Exception: ', '');
+      _errorMessage = message;
+      if (message.contains('Too many requests')) {
+        _startRateLimit(const Duration(seconds: 30));
+      }
       notifyListeners();
       return false;
     } finally {
@@ -389,6 +467,22 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteAccount(String password) async {
+    _setLoading(true);
+    _errorMessage = null;
+    try {
+      await ApiService.deleteAccount(password: password);
+      await logout();
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll('Exception: ', '');
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<bool> updateLevel(String level) async {
     try {
       _userLevel = level;
@@ -419,6 +513,9 @@ class AuthProvider extends ChangeNotifier {
     _hasTakenTest = true;
     await prefs.setBool('skippedLevelTest', true);
     await prefs.setString('userLevel', _userLevel!);
+    try {
+      await ApiService.updateLevel('A1');
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -438,6 +535,27 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void _clearRateLimit() {
+    _rateLimitTimer?.cancel();
+    _rateLimitTimer = null;
+    _isRateLimited = false;
+    _rateLimitUntil = null;
+  }
+
+  void _startRateLimit(Duration duration) {
+    _isRateLimited = true;
+    _rateLimitUntil = DateTime.now().add(duration);
+    _rateLimitTimer?.cancel();
+    _rateLimitTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_rateLimitUntil == null ||
+          _rateLimitUntil!.isBefore(DateTime.now())) {
+        _clearRateLimit();
+      }
+      notifyListeners();
+    });
+    notifyListeners();
+  }
+
   void _setLoading(bool val) {
     _isLoading = val;
     notifyListeners();
@@ -451,5 +569,11 @@ class AuthProvider extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _rateLimitTimer?.cancel();
+    super.dispose();
   }
 }

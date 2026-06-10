@@ -66,22 +66,37 @@ class QuizHistory {
   final int score;
   final int questionsCount;
   final String date;
+  final String? quizType;
 
   QuizHistory({
     required this.quizId,
     required this.score,
     required this.questionsCount,
     required this.date,
+    this.quizType,
   });
 
   factory QuizHistory.fromJson(Map<String, dynamic> json) {
     return QuizHistory(
       quizId: json['quizId'] ?? json['quiz_id'] ?? json['id'] ?? 0,
       score: json['score'] ?? 0,
-      questionsCount:
-          json['questionsCount'] ?? json['total_questions'] ?? json['total'] ?? 0,
+      questionsCount: json['questionsCount'] ??
+          json['total_questions'] ??
+          json['total'] ??
+          0,
       date: json['date'] ?? json['started_at'] ?? json['submitted_at'] ?? '',
+      quizType: json['quizType'] ?? json['quiz_type'] ?? json['type'],
     );
+  }
+
+  String get formattedDate {
+    if (date.isEmpty) return 'No date';
+    try {
+      final dt = DateTime.parse(date);
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return date;
+    }
   }
 }
 
